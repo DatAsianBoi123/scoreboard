@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host Scoreboard</title>
+
+  <link rel="stylesheet" href="style.css">
+  <script src="../packet.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div id="loadingDiv">
+    <h1>Loading...</h1>
+  </div>
+
+  <div id="main" style="display: none;">
+    <h1>Hosting with ID <span id="hostId"></span></h1>
+    <h1 id="timeLeft">--:--</h1>
+    <a href="" id="viewLink" target="_blank">View Game</a>
+
+    <div id="beforeStart">
+      <button id="startBtn">Start</button>
+    </div>
+
+    <div id="afterStart" style="display: none;">
+      <p>Blue Points: <span id="bluePoints">0</span></p>
+      <p>Red Points: <span id="redPoints">0</span></p>
+      <button id="endBtn">End Now</button>
+      <table id="scoreHistory">
+        <tr>
+          <th>Team</th>
+          <th>Scored</th>
+          <th>Points Earned</th>
+          <th>Timestamp</th>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div id="disconnectDiv" style="display: none;">
+    <h1>You've been disconnected!</h1>
+    <a href="/">Return home</a>
+  </div>
+</body>
+</html>

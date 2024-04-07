@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scoreboard</title>
+</head>
+<body>
+  <h1>Hello, World!</h1>
+  <form action="/host">
+    <label for="gameType">Game:</label>
+    <select name="gameType">
+      <option value="0">Summer Camp 2023</option>
+      <option value="1">Summer Camp 2024</option>
+    </select>
+
+    <input type="submit" value="Host">
+  </form>
+
+  <form action="/join" method="get">
+    <label for="sessionId">Session ID:</label>
+    <input type="text" name="sessionId" autocomplete="off">
+
+    <label for="team">Team:</label>
+    <select name="team">
+      <option value="red">Red</option>
+      <option value="blue">Blue</option>
+    </select>
+
+    <input type="submit" value="Join">
+  </form>
+</body>
+</html>

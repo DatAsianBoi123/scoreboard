@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Game</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap">
+
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div id="loading">
+    <h1>Loading...</h1>
+  </div>
+
+  <div id="main" style="display: none;">
+    <div class="container left blue">
+      <div class="points">
+        <span id="bluePoints">-</span>
+      </div>
+    </div>
+
+    <div class="container right red">
+      <div class="points">
+        <span id="redPoints">-</span>
+      </div>
+    </div>
+
+    <div class="scoreCats" id="scoreCategories"></div>
+
+    <div class="timeLeft">
+      <p id="timeLeftText">-:--</p>
+    </div>
+  </div>
+</body>
+</html>

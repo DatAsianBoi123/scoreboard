@@ -1,0 +1,23 @@
+table, td, th {
+  padding: 8px;
+  border: 1px solid black;
+}
+
+table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+
+tr.red {
+  background: salmon;
+}
+
+tr.blue {
+  background: skyblue;
+}
+
+th {
+  background: #37e66e;
+}
+
