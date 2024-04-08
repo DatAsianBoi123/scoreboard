@@ -24,5 +24,5 @@ However, if you do need to host locally, you can follow the following steps:
 **Note:** Using this method will only allow your machine to view the website and connect to the server.
 To allow anyone on your local network to join, run `cargo shuttle run` with the `--external` flag and open port 8000 on your firewall.
 To do this on Linux, you can follow the steps [here](https://digitalocean.com/community/tutorials/opening-a-port-on-linux).
-If you're running WSL, you can view [this SA answer and thread](https://stackoverflow.com/a/66890232).
+If you're running WSL, you can view [this SO answer and thread](https://stackoverflow.com/a/66890232).
 
