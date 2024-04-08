@@ -25,6 +25,7 @@
   border: none;
   margin: 10px;
   padding: 10px 20px;
+  color: black;
   cursor: pointer;
 }
 .scoreContainer .score:disabled {
