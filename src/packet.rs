@@ -102,6 +102,12 @@ serverbound_packet! {
             },
         },
         1: EndGame,
+        2: PauseGame,
+        3: UnpauseGame {
+            time_paused: u64 = {
+                reader.read_u64_le()
+            }
+        },
     }
 }
 

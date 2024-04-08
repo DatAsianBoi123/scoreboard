@@ -13,6 +13,8 @@ pub struct GameState {
     pub blue_scored: HashMap<u8, i32>,
     pub red_scored: HashMap<u8, i32>,
     pub time_started: Option<u64>,
+    pub time_paused: u64,
+    pub paused: bool,
     pub ended: bool,
 }
 

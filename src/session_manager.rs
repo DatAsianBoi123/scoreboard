@@ -91,6 +91,8 @@ pub enum ViewerMessage {
     Score(Team, u8),
     GameStart(u64),
     GameEnd,
+    GamePause,
+    GameUnpause(u64),
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]

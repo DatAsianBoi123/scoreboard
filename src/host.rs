@@ -72,34 +72,53 @@ async fn handle_socket(mut ws: WebSocket, session_id: u32, game_data: GameData, 
                         {
                             let mut lock = recv_state.lock().await;
                             let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
-                            if game_state.time_started.is_none() {
-                                game_state.time_started = Some(time_started);
-                            } else {
-                                break;
-                            }
-                        }
+                            if game_state.time_started.is_some() { break; }
+                            game_state.time_started = Some(time_started);
+                        };
                         info!("[{session_id}] started game");
                         viewer_sender.send(ViewerMessage::GameStart(time_started)).expect("receivers exist for viewer");
-                        UserMessage::GameStart
+                        Some(UserMessage::GameStart)
                     },
                     ServerboundHostPacket::EndGame => {
                         {
                             let mut lock = recv_state.lock().await;
                             let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
-                            if game_state.time_started.is_some() {
-                                game_state.time_started = None;
-                                game_state.ended = true;
-                            } else {
-                                break;
-                            }
-                        }
+                            if game_state.time_started.is_none() { break; }
+                            game_state.time_started = None;
+                            game_state.ended = true;
+                        };
                         info!("[{session_id}] ended game");
                         viewer_sender.send(ViewerMessage::GameEnd).expect("receivers exist for viewer");
-                        UserMessage::GameEnd
+                        Some(UserMessage::GameEnd)
+                    },
+                    ServerboundHostPacket::PauseGame => {
+                        {
+                            let mut lock = recv_state.lock().await;
+                            let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
+                            if game_state.paused { break; }
+                            game_state.paused = true;
+                        };
+                        info!("[{session_id}] paused game");
+                        viewer_sender.send(ViewerMessage::GamePause).expect("receivers exist for viewer");
+                        None
+                    },
+                    ServerboundHostPacket::UnpauseGame { time_paused } => {
+                        {
+                            let mut lock = recv_state.lock().await;
+                            let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
+                            if !game_state.paused { break; }
+                            game_state.time_paused += time_paused;
+                            game_state.paused = false;
+                        };
+                        info!("[{session_id}] unpaused game (paused for {}s)", time_paused / 1000);
+                        viewer_sender.send(ViewerMessage::GameUnpause(time_paused)).expect("receivers exist for viewer");
+                        None
                     },
                 };
 
-                if user_sender.send(message).is_err() { break; }
+                if let Some(message) = message {
+                    if user_sender.send(message).is_err() { break; }
+                };
             } else {
                 break;
             }
