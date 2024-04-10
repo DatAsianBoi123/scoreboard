@@ -28,12 +28,7 @@ pub async fn sse_handler(
 
         let stream = BroadcastStream::new(viewer_recv)
             .map(|viewer_message| {
-                let event = match viewer_message {
-                    Ok(ViewerMessage::Score(team, score_id)) => Some(ViewerEvent::Score { team, score_id }),
-                    Ok(ViewerMessage::GameStart(time_started)) => Some(ViewerEvent::GameStart { time_started }),
-                    Ok(ViewerMessage::GameEnd) => Some(ViewerEvent::GameEnd),
-                    Err(_) => None,
-                };
+                let event = viewer_message.ok().map(ViewerEvent::from);
                 Ok(event.and_then(|event| Event::default().json_data(&event).ok()).unwrap_or_default())
             });
         let stream = tokio_stream::once(Ok::<Event, Infallible>(Event::default().json_data(&init_event).expect("valid json")))
@@ -51,5 +46,19 @@ enum ViewerEvent {
     Score { team: Team, score_id: u8 },
     GameStart { time_started: u64 },
     GameEnd,
+    GamePause,
+    GameUnpause { paused_time: u64 },
+}
+
+impl From<ViewerMessage> for ViewerEvent {
+    fn from(value: ViewerMessage) -> Self {
+        match value {
+            ViewerMessage::Score(team, score_id) => Self::Score { team, score_id },
+            ViewerMessage::GameStart(time_started) => Self::GameStart { time_started },
+            ViewerMessage::GameEnd => Self::GameEnd,
+            ViewerMessage::GamePause => Self::GamePause,
+            ViewerMessage::GameUnpause(paused_time) => Self::GameUnpause { paused_time }
+        }
+    }
 }
 
