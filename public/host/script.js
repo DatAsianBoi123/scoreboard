@@ -22,6 +22,10 @@ let gameInfo;
 let gameEnded = false;
 let startedTime;
 
+let gamePaused = false;
+let pauseStarted;
+let pausedTime = 0;
+
 const bluePointsSpan = document.getElementById('bluePoints');
 const redPointsSpan = document.getElementById('redPoints');
 
@@ -41,7 +45,19 @@ document.getElementById('startBtn').addEventListener('click', _ => {
 document.getElementById('endBtn').addEventListener('click', event => {
   if (!startedTime) return;
   event.target.disabled = true;
+  document.getElementById('pauseBtn').disabled = true;
   endGame();
+});
+
+document.getElementById('pauseBtn').addEventListener('click', event => {
+  if (!startedTime) return;
+  if (gamePaused) {
+    unpauseGame();
+    event.target.innerText = 'Pause';
+  } else {
+    pauseGame();
+    event.target.innerText = 'Unpause';
+  }
 });
 
 ws.addEventListener('open', _ => {
@@ -98,6 +114,8 @@ function init() {
 
 function startUpdateTimeInterval() {
   const updateTimeIntervalId = setInterval(() => {
+    if (gamePaused) return;
+
     const timeLeftH1 = document.getElementById('timeLeft');
 
     if (gameEnded) {
@@ -125,19 +143,41 @@ function startUpdateTimeInterval() {
 function startGame() {
   startedTime = Date.now();
 
-  let writer = new PacketWriter(9);
+  const writer = new PacketWriter(9);
   writer.writeUint8(0);
   writer.writeUint64(BigInt(startedTime));
   ws.send(writer.get());
 }
 
 function endGame() {
-  let writer = new PacketWriter(1);
+  const writer = new PacketWriter(1);
   writer.writeUint8(1);
   ws.send(writer.get());
 
   gameEnded = true;
   startedTime = null;
+}
+
+function pauseGame() {
+  const writer = new PacketWriter(1);
+  writer.writeUint8(2);
+  ws.send(writer.get());
+
+  pauseStarted = Date.now();
+  gamePaused = true;
+}
+
+function unpauseGame() {
+  const timePaused = Date.now() - pauseStarted;
+
+  const writer = new PacketWriter(9);
+  writer.writeUint8(3);
+  writer.writeUint64(BigInt(timePaused));
+  ws.send(writer.get());
+
+  pauseStarted = null;
+  gamePaused = false;
+  pausedTime += timePaused;
 }
 
 function disconnect() {
@@ -196,7 +236,7 @@ function addScoreLog(team, scorePoints) {
 }
 
 function getCurrentTimeLeft() {
-  return gameInfo.duration * 1000 - (Date.now() - startedTime);
+  return gameInfo.duration * 1000 - (Date.now() - (startedTime + pausedTime));
 }
 
 function formatTime(time) {

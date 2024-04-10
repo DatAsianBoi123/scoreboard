@@ -4,6 +4,9 @@ const eventSource = new EventSource(`/sse/view/${parseInt(query.get('id'), 36)}`
 
 let startedTime;
 let gameEnded = false;
+
+let timePaused = 0;
+let gamePaused = false;
 /**
   * @type {{ name: string, category: string, points: number }[]}
   */
@@ -16,7 +19,7 @@ const points = {
 
 eventSource.addEventListener('message', event => {
   /**
-    * @type {{ type: 'session_info' | 'score' | 'game_start' | 'game_end', content: any }}
+    * @type {{ type: 'session_info' | 'score' | 'game_start' | 'game_end' | 'game_pause' | 'game_unpause', content: any }}
     */
   const data = JSON.parse(event.data);
 
@@ -29,6 +32,11 @@ eventSource.addEventListener('message', event => {
   } else if (data.type === 'game_end') {
     gameEnded = true;
     startedTime = null;
+  } else if (data.type === 'game_pause') {
+    gamePaused = true;
+  } else if (data.type === 'game_unpause') {
+    gamePaused = false;
+    timePaused += data.content.paused_time;
   }
 });
 
@@ -56,9 +64,11 @@ function init(data, state) {
 
   const timeLeftText = document.getElementById('timeLeftText');
   setInterval(() => {
+    if (gamePaused) return;
+
     let text;
     if (startedTime) {
-      const timeLeft = data.duration * 1000 - (Date.now() - startedTime);
+      const timeLeft = data.duration * 1000 - (Date.now() - (startedTime + timePaused));
       if (timeLeft <= 0) text = '0:00';
       text = formatTime(timeLeft);
     } else if (gameEnded) {
