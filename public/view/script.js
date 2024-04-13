@@ -61,9 +61,12 @@ function init(data, state) {
   updatePoints();
 
   generateScoreCategories({ red: state.red_scored, blue: state.blue_scored });
+  startUpdateTimeInterval();
+}
 
+function startUpdateTimeInterval() {
   const timeLeftText = document.getElementById('timeLeftText');
-  setInterval(() => {
+  const id = setInterval(() => {
     if (gamePaused) return;
 
     let text;
@@ -73,6 +76,12 @@ function init(data, state) {
       text = formatTime(timeLeft);
     } else if (gameEnded) {
       text = '0:00';
+      if (points.red > points.blue) {
+        document.getElementById('redAlliance').classList.add('winner');
+      } else if (points.blue > points.red) {
+        document.getElementById('blueAlliance').classList.add('winner');
+      }
+      clearInterval(id);
     } else {
       text = formatTime(data.duration * 1000);
     }
