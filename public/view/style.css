@@ -21,7 +21,7 @@
   line-height: 180px;
   font-family: 'Sarabun', sans-serif;
   font-weight: bold;
-  font-size: 8rem;
+  font-size: 7.5rem;
   z-index: 0;
 }
 .container.left.winner::before {
