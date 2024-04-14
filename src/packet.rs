@@ -1,11 +1,9 @@
-use std::mem::size_of;
-
 use axum::extract::ws::Message;
 
-use crate::{session_manager::Team, game::{GameData, ScorePoint}};
+use crate::{game::GameData, session_manager::Team};
 
 macro_rules! clientbound_packet {
-    ($n: ident @ $wn: ident { $($i: literal : $v: ident $(($($m: ident: $t: ty),+))? $( => $w: block),* $(,)? )*}) => {
+    ($n: ident { $($i: literal : $v: ident $(($($m: ident: $t: ty),+))? ),* $(,)?}) => {
         #[derive(Debug)]
         pub enum $n {
             $($v ($( $($t,)+ )?),)*
@@ -21,17 +19,12 @@ macro_rules! clientbound_packet {
             }
 
             fn write(self, writer: &mut PacketWriter) {
-                let $wn = writer;
-
                 match self {
                     $(
                         Self::$v( $($($m,)+)? ) => {
                             $($(
-                                let $m = $m;
+                                writer.write($m);
                             )?)*
-                            $(
-                                $w;
-                            )?
                         }
                     )*
                 }
@@ -41,7 +34,7 @@ macro_rules! clientbound_packet {
 }
 
 macro_rules! serverbound_packet {
-    ($n: ident @ $r: ident { $($i: literal : $v: ident $({ $($f: ident : $t: ty = $b: block),* $(,)? })?),* $(,)? }) => {
+    ($n: ident { $($i: literal : $v: ident $({ $($f: ident : $t: ty),* $(,)? })?),* $(,)? }) => {
         #[derive(Debug)]
         pub enum $n {
             $(
@@ -51,14 +44,13 @@ macro_rules! serverbound_packet {
 
         impl ServerboundPacket for $n {
             fn read(reader: &mut PacketReader) -> Option<Self> {
-                let id = reader.read_u8()?;
-                let $r = reader;
+                let id: u8 = reader.read()?;
 
                 match id {
                     $(
                         $i => {
                             $($(
-                                let $f = $b?;
+                                let $f = reader.read()?;
                             )*)?
                             Some(Self::$v $({ $($f),* })?)
                         }
@@ -71,53 +63,32 @@ macro_rules! serverbound_packet {
 }
 
 clientbound_packet! {
-    ClientboundHostPacket @ writer {
-        0: SessionInfo(id: u32, game_data: GameData) => {
-            writer.write_u32_le(id);
-            write_game_data(writer, game_data);
-        },
-        1: Score(team: Team, score_type: u8) => {
-            writer.write_u8(team as u8);
-            writer.write_u8(score_type);
-        },
+    ClientboundHostPacket {
+        0: SessionInfo(id: u32, game_data: GameData),
+        1: Score(team: Team, score_type: u8),
     }
 }
 
 clientbound_packet! {
-    ClientboundUserPacket @ writer {
-        0: SessionInfo(started: bool, game_data: GameData) => {
-            writer.write_bool(started);
-            write_game_data(writer, game_data);
-        },
+    ClientboundUserPacket {
+        0: SessionInfo(started: bool, game_data: GameData),
         1: StartGame,
         2: EndGame,
     }
 }
 
 serverbound_packet! {
-    ServerboundHostPacket @ reader {
-        0: StartGame {
-            time_started: u64 = {
-                reader.read_u64_le()
-            },
-        },
+    ServerboundHostPacket {
+        0: StartGame { time_started: u64 },
         1: EndGame,
         2: PauseGame,
-        3: UnpauseGame {
-            time_paused: u64 = {
-                reader.read_u64_le()
-            }
-        },
+        3: UnpauseGame { time_paused: u64 },
     }
 }
 
 serverbound_packet! {
-    ServerboundUserPacket @ reader {
-        0: Score {
-            score_type: u8 = {
-                reader.read_u8()
-            },
-        },
+    ServerboundUserPacket {
+        0: Score { score_type: u8 },
     }
 }
 
@@ -162,12 +133,66 @@ pub trait ServerboundPacket {
     fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized;
 }
 
-pub fn write_game_data(writer: &mut PacketWriter, game_data: GameData) {
-    writer.write_u16_le(game_data.duration.secs);
-    for ScorePoint { name, category, points } in Vec::from(game_data.score_points) {
-        writer.write_string_len(name);
-        writer.write_string_len(category);
-        writer.write_i8_le(points);
+pub trait Readable<const S: usize> {
+    fn read(bytes: [u8; S]) -> Option<Self> where Self: Sized;
+}
+
+impl Readable<1> for u8 {
+    fn read(bytes: [u8; 1]) -> Option<Self> where Self: Sized {
+        Some(bytes[0])
+    }
+}
+
+impl Readable<8> for u64 {
+    fn read(bytes: [u8; 8]) -> Option<Self> where Self: Sized {
+        Some(u64::from_le_bytes(bytes))
+    }
+}
+
+pub trait Writable {
+    fn write(self, writer: &mut PacketWriter);
+}
+
+impl Writable for bool {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write(self as u8);
+    }
+}
+
+impl Writable for i8 {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write_all(self.to_le_bytes());
+    }
+}
+
+impl Writable for u8 {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write_u8(self);
+    }
+}
+
+impl Writable for u16 {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write_all(self.to_le_bytes());
+    }
+}
+
+impl Writable for u32 {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write_all(self.to_le_bytes());
+    }
+}
+
+impl Writable for usize {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write_all(self.to_le_bytes());
+    }
+}
+
+impl Writable for String {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write(self.len());
+        writer.write_all(self.into_bytes());
     }
 }
 
@@ -181,33 +206,14 @@ impl PacketReader {
         Self { index: 0, buf }
     }
 
-    pub fn read_u8(&mut self) -> Option<u8> {
-        let res = self.buf.get(self.index);
-        self.index += 1;
-        res.copied()
-    }
-
-    pub fn read_u64_le(&mut self) -> Option<u64> {
-        // this is so ugly
-        Some(u64::from_le_bytes([
-                self.read_u8()?,
-                self.read_u8()?,
-                self.read_u8()?,
-                self.read_u8()?,
-                self.read_u8()?,
-                self.read_u8()?,
-                self.read_u8()?,
-                self.read_u8()?,
-        ]))
-    }
-
-    pub fn read_usize_le(&mut self) -> Option<usize> {
-        let mut bytes: [u8; size_of::<usize>()] = Default::default();
+    pub fn read<T: Readable<S>, const S: usize>(&mut self) -> Option<T> {
+        let mut bytes = [0; S];
         #[allow(clippy::needless_range_loop)]
-        for i in 0..bytes.len() {
-            bytes[i] = self.read_u8()?;
+        for i in 0..S {
+            bytes[i] = self.buf.get(self.index).copied()?;
+            self.index += 1;
         }
-        Some(usize::from_le_bytes(bytes))
+        T::read(bytes)
     }
 }
 
@@ -220,37 +226,16 @@ impl PacketWriter {
         Self { bytes: Vec::new() }
     }
 
-    pub fn write_all(&mut self, data: impl IntoIterator<Item = u8>) {
-        data.into_iter().for_each(|byte| self.write_u8(byte));
+    pub fn write<W: Writable>(&mut self, data: W) {
+        data.write(self);
     }
 
-    pub fn write_bool(&mut self, data: bool) {
-        self.write_u8(data as u8)
-    }
-
-    pub fn write_i8_le(&mut self, data: i8) {
-        self.bytes.push(data.to_le_bytes()[0]);
+    pub fn write_all(&mut self, data: impl IntoIterator<Item = impl Writable>) {
+        data.into_iter().for_each(|writable| self.write(writable));
     }
 
     pub fn write_u8(&mut self, data: u8) {
         self.bytes.push(data);
-    }
-
-    pub fn write_u16_le(&mut self, data: u16) {
-        self.write_all(data.to_le_bytes())
-    }
-
-    pub fn write_u32_le(&mut self, data: u32) {
-        self.write_all(data.to_le_bytes())
-    }
-
-    pub fn write_usize_le(&mut self, data: usize) {
-        self.write_all(data.to_le_bytes())
-    }
-
-    pub fn write_string_len(&mut self, data: String) {
-        self.write_usize_le(data.len());
-        self.write_all(data.into_bytes());
     }
 
     pub fn get(self) -> Vec<u8> {

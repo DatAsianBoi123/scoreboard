@@ -2,10 +2,23 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
+use crate::packet::Writable;
+
 #[derive(Clone, Debug, Serialize)]
 pub struct GameData {
     pub duration: GameDuration,
     pub score_points: Box<[ScorePoint]>,
+}
+
+impl Writable for GameData {
+    fn write(self, writer: &mut crate::packet::PacketWriter) {
+        writer.write(self.duration.secs);
+        for ScorePoint { name, category, points } in Vec::from(self.score_points) {
+            writer.write(name);
+            writer.write(category);
+            writer.write(points);
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize)]

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tokio::sync::broadcast::{Receiver, Sender, self};
 use serde::{Deserialize, Serialize};
 
-use crate::game::{GameData, GameState};
+use crate::{game::{GameData, GameState}, packet::{Writable, PacketWriter}};
 
 pub struct SessionManager {
     sessions: HashMap<u32, Session>,
@@ -101,5 +101,11 @@ pub enum ViewerMessage {
 pub enum Team {
     Blue,
     Red,
+}
+
+impl Writable for Team {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write(self as u8);
+    }
 }
 
