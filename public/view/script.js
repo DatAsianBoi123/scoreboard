@@ -61,17 +61,17 @@ function init(data, state) {
   updatePoints();
 
   generateScoreCategories({ red: state.red_scored, blue: state.blue_scored });
-  startUpdateTimeInterval();
+  startUpdateTimeInterval(data.duration);
 }
 
-function startUpdateTimeInterval() {
+function startUpdateTimeInterval(duration) {
   const timeLeftText = document.getElementById('timeLeftText');
   const id = setInterval(() => {
     if (gamePaused) return;
 
     let text;
     if (startedTime) {
-      const timeLeft = data.duration * 1000 - (Date.now() - (startedTime + timePaused));
+      const timeLeft = duration * 1000 - (Date.now() - (startedTime + timePaused));
       if (timeLeft <= 0) text = '0:00';
       text = formatTime(timeLeft);
     } else if (gameEnded) {
@@ -83,7 +83,7 @@ function startUpdateTimeInterval() {
       }
       clearInterval(id);
     } else {
-      text = formatTime(data.duration * 1000);
+      text = formatTime(duration * 1000);
     }
     if (timeLeftText.innerText !== text) timeLeftText.innerText = text;
   }, 1);
