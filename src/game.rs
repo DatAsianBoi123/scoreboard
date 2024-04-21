@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use lazy_static::lazy_static;
 use serde::Serialize;
 
 use crate::packet::Writable;
@@ -57,16 +58,45 @@ impl GameDuration {
     }
 }
 
-macro_rules! score_points {
-    ($($c: literal : { $($n: literal : $p: literal),+ $(,)? }),* $(,)?) => {
-        Box::new([$($(ScorePoint { name: $n.to_string(), category: $c.to_string(), points: $p }),+),*])
+#[derive(Serialize)]
+pub struct BuiltinGame {
+    pub name: String,
+    pub data: GameData,
+}
+
+#[derive(Serialize)]
+pub struct BuiltinGames {
+    pub games: Box<[BuiltinGame]>,
+}
+
+lazy_static! {
+    pub static ref BUILTIN: BuiltinGames = BuiltinGames::default();
+}
+
+macro_rules! builtin_games {
+    ($($n: literal : { duration: $d: expr, data: { $($c: literal : { $($s: literal : $p: literal),+ $(,)? }),* $(,)? } $(,)? }),* $(,)?) => {
+        impl Default for crate::game::BuiltinGames {
+            fn default() -> Self {
+                let mut games = Vec::new();
+                $({
+                    let data = crate::game::GameData {
+                        duration: $d,
+                        score_points: Box::new([$($(ScorePoint { name: $s.to_string(), category: $c.to_string(), points: $p }),+),*]),
+                    };
+                    games.push(crate::game::BuiltinGame { name: $n.to_string(), data });
+                })*
+                Self {
+                    games: games.into(),
+                }
+            }
+        }
     };
 }
 
-fn summer_camp_2023() -> GameData {
-    GameData {
+builtin_games! {
+    "FRC Rapid React 2023": {
         duration: GameDuration::from_min(5),
-        score_points: score_points! {
+        data: {
             "cube": { "cube": 2 },
             "cone": { "cone": 3 },
             "penalty": {
@@ -74,13 +104,10 @@ fn summer_camp_2023() -> GameData {
                 "side penalty": -3,
             },
         },
-    }
-}
-
-fn summer_camp_2024() -> GameData {
-    GameData {
+    },
+    "FRC Crescendo 2024": {
         duration: GameDuration::from_min(5),
-        score_points: score_points! {
+        data: {
             "amp": { "amp": 1 },
             "speaker": { "speaker": 3 },
             "stage": {
@@ -91,16 +118,8 @@ fn summer_camp_2024() -> GameData {
             "penalty": {
                 "hit penalty": -2,
                 "side penalty": -3,
-            }
-        },
-    }
-}
-
-pub fn from_id(id: u8) -> Option<GameData> {
-    match id {
-        0 => Some(summer_camp_2023()),
-        1 => Some(summer_camp_2024()),
-        _ => None,
+            },
+        }
     }
 }
 

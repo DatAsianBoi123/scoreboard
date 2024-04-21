@@ -1182,6 +1182,7 @@ version = "0.1.0"
 dependencies = [
  "axum 0.7.5",
  "futures",
+ "lazy_static",
  "rand",
  "serde",
  "shuttle-axum",

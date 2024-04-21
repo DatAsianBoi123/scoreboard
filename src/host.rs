@@ -8,8 +8,8 @@ use crate::{AppState, session_manager::{HostMessageType, UserMessage, ViewerMess
 pub async fn ws_handler(ws: WebSocketUpgrade, Path(game_type): Path<u8>, State(state): State<AppState>) -> Response {
     let session_id = thread_rng().gen();
 
-    if let Some(score_points) = game::from_id(game_type) {
-        ws.on_upgrade(move |ws| handle_socket(ws, session_id, score_points, state)).into_response()
+    if let Some(score_points) = game::BUILTIN.games.get(game_type as usize) {
+        ws.on_upgrade(move |ws| handle_socket(ws, session_id, score_points.data.clone(), state)).into_response()
     } else {
         (StatusCode::BAD_REQUEST, format!("game type with id {game_type} not found")).into_response()
     }
