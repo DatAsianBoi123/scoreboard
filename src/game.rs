@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use axum::{response::IntoResponse, Json};
 use lazy_static::lazy_static;
 use serde::Serialize;
 
@@ -121,5 +122,9 @@ builtin_games! {
             },
         }
     }
+}
+
+pub async fn get_all_builtin() -> impl IntoResponse {
+    Json(&BUILTIN.games)
 }
 
