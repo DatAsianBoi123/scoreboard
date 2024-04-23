@@ -1,3 +1,5 @@
+import { PacketReader, PacketWriter } from '../packet.js'
+
 let rootWsUrl;
 if (location.protocol === 'https:') {
   rootWsUrl = 'wss://';

@@ -1,4 +1,4 @@
-class PacketReader {
+export class PacketReader {
   #index = 0;
   /**
     * @type {DataView}
@@ -76,7 +76,7 @@ class PacketReader {
   }
 }
 
-class PacketWriter {
+export class PacketWriter {
   #index = 0;
   /**
     * @type {DataView}
