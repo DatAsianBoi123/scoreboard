@@ -89,6 +89,7 @@ function retrieveBuiltinGames(builtinGames) {
 
 function host(gameType) {
   document.getElementById('prehost').style.display = 'none';
+  document.getElementById('loadingDiv').style.display = 'block';
 
   const ws = new WebSocket(`${rootWsUrl}/ws/host/${gameType}`);
 
