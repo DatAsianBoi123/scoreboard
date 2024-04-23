@@ -6,9 +6,6 @@ if (location.protocol === 'https:') {
 }
 rootWsUrl += location.host;
 
-const searchParams = new URLSearchParams(window.location.search);
-const ws = new WebSocket(`${rootWsUrl}/ws/host/${searchParams.get('gameType')}`);
-
 /**
   * @type {number}
   */
@@ -60,46 +57,86 @@ document.getElementById('pauseBtn').addEventListener('click', event => {
   }
 });
 
-ws.addEventListener('open', _ => {
-  console.log('connected to ws');
+document.getElementById('hostInfoForm').addEventListener('submit', event => {
+  event.preventDefault();
+
+  host(event.target.gameType.value);
 });
 
-ws.addEventListener('close', _ => {
-  disconnect();
+fetch(`/api/builtin-games`)
+  .then(res => res.json())
+  .then(retrieveBuiltinGames);
 
-  console.log('connection closed');
-});
+/**
+  * @param {{ name: string, data: any }[]} builtinGames 
+  */
+function retrieveBuiltinGames(builtinGames) {
+  document.getElementById('loadingDiv').style.display = 'none';
 
-ws.addEventListener('message', async event => {
-  const reader = new PacketReader(await event.data.arrayBuffer());
-  switch (reader.readUint8()) {
-    // SessionInfo
-    case 0: {
-      console.log('session info');
+  const gameTypeSelect = document.getElementById('gameTypeSelect');
 
-      id = reader.readUint32();
-      gameInfo = reader.readGameInfo();
-
-      console.log(`id: ${id}`);
-      console.log(`duration: ${gameInfo.duration}s`);
-      console.table(gameInfo.scorePoints);
-
-      init();
-
-      break;
-    };
-
-    // ScoreType
-    case 1: {
-      console.log('score type');
-
-      const team = reader.readUint8();
-      const scoreId = reader.readUint8();
-
-      score(team, scoreId);
-    }
+  for (let i = 0; i < builtinGames.length; i++) {
+    const option = document.createElement('option');
+    option.innerText = builtinGames[i].name;
+    option.value = i;
+    gameTypeSelect.appendChild(option);
   }
-});
+
+  document.getElementById('prehost').style.display = 'block';
+}
+
+function host(gameType) {
+  document.getElementById('prehost').style.display = 'none';
+
+  const ws = new WebSocket(`${rootWsUrl}/ws/host/${gameType}`);
+
+  ws.addEventListener('open', _ => {
+    console.log('connected to ws');
+  });
+
+  ws.addEventListener('close', _ => {
+    disconnect();
+
+    console.log('connection closed');
+  });
+
+  ws.addEventListener('error', event => {
+    disconnect();
+
+    console.log(`got error: ${event}`);
+  });
+
+  ws.addEventListener('message', async event => {
+    const reader = new PacketReader(await event.data.arrayBuffer());
+    switch (reader.readUint8()) {
+      // SessionInfo
+      case 0: {
+        console.log('session info');
+
+        id = reader.readUint32();
+        gameInfo = reader.readGameInfo();
+
+        console.log(`id: ${id}`);
+        console.log(`duration: ${gameInfo.duration}s`);
+        console.table(gameInfo.scorePoints);
+
+        init();
+
+        break;
+      };
+
+      // ScoreType
+      case 1: {
+        console.log('score type');
+
+        const team = reader.readUint8();
+        const scoreId = reader.readUint8();
+
+        score(team, scoreId);
+      }
+    }
+  });
+}
 
 function init() {
   document.getElementById('loadingDiv').style.display = 'none';
