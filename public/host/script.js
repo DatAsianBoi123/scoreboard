@@ -91,10 +91,17 @@ function host(gameType) {
   document.getElementById('prehost').style.display = 'none';
   document.getElementById('loadingDiv').style.display = 'block';
 
-  const ws = new WebSocket(`${rootWsUrl}/ws/host/${gameType}`);
+  const ws = new WebSocket(`${rootWsUrl}/ws/host`);
 
   ws.addEventListener('open', _ => {
     console.log('connected to ws');
+    console.log(gameType);
+
+    const writer = new PacketWriter(10)
+    writer.writeUint8(4);
+    writer.writeUint8(0);
+    writer.writeUint64(BigInt(gameType));
+    ws.send(writer.get());
   });
 
   ws.addEventListener('close', _ => {
@@ -103,10 +110,10 @@ function host(gameType) {
     console.log('connection closed');
   });
 
-  ws.addEventListener('error', event => {
+  ws.addEventListener('error', _ => {
     disconnect();
 
-    console.log(`got error: ${event}`);
+    console.log('got error');
   });
 
   ws.addEventListener('message', async event => {
