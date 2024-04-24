@@ -4,7 +4,7 @@ use axum::{response::IntoResponse, Json};
 use lazy_static::lazy_static;
 use serde::Serialize;
 
-use crate::packet::Writable;
+use crate::packet::{Writable, Readable, PacketReader, PacketWriter};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct GameData {
@@ -12,8 +12,23 @@ pub struct GameData {
     pub score_points: Box<[ScorePoint]>,
 }
 
+impl Readable for GameData {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        let duration = reader.read()?;
+
+        let mut score_points = Vec::new();
+        loop {
+            if score_points.len() == 256 { break; }
+            score_points.push(reader.read()?);
+        }
+
+        if score_points.len() == 256 { return None; }
+        Some(GameData { duration, score_points: score_points.into() })
+    }
+}
+
 impl Writable for GameData {
-    fn write(self, writer: &mut crate::packet::PacketWriter) {
+    fn write(self, writer: &mut PacketWriter) {
         writer.write(self.duration.secs);
         for ScorePoint { name, category, points } in Vec::from(self.score_points) {
             writer.write(name);
@@ -40,9 +55,25 @@ pub struct ScorePoint {
     pub points: i8,
 }
 
+impl Readable for ScorePoint {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        let name = reader.read()?;
+        let category = reader.read()?;
+        let points = reader.read()?;
+
+        Some(ScorePoint { name, category, points })
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct GameDuration {
     pub secs: u16,
+}
+
+impl Readable for GameDuration {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        Some(GameDuration { secs: reader.read()? })
+    }
 }
 
 impl Serialize for GameDuration {
@@ -59,10 +90,16 @@ impl GameDuration {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct BuiltinGame {
     pub name: String,
     pub data: GameData,
+}
+
+impl Readable for &'static BuiltinGame {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        BUILTIN.games.get(reader.read::<usize>()?)
+    }
 }
 
 #[derive(Serialize)]

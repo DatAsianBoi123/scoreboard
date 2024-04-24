@@ -1,6 +1,6 @@
 use axum::extract::ws::Message;
 
-use crate::{game::GameData, session_manager::Team};
+use crate::{game::{GameData, BuiltinGame}, session_manager::Team};
 
 macro_rules! clientbound_packet {
     ($n: ident { $($i: literal : $v: ident $(($($m: ident: $t: ty),+))? ),* $(,)?}) => {
@@ -83,12 +83,30 @@ serverbound_packet! {
         1: EndGame,
         2: PauseGame,
         3: UnpauseGame { time_paused: u64 },
+        4: GameData { game_type: Either<&'static BuiltinGame, GameData> },
     }
 }
 
 serverbound_packet! {
     ServerboundUserPacket {
         0: Score { score_type: u8 },
+    }
+}
+
+#[derive(Debug)]
+pub enum Either<L, R> {
+    Left(L),
+    Right(R),
+}
+
+impl<L: Readable, R: Readable> Readable for Either<L, R> {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        let variant: u8 = reader.read()?;
+        match variant {
+            0 => Some(Either::Left(L::read(reader)?)),
+            1 => Some(Either::Right(R::read(reader)?)),
+            _ => None,
+        }
     }
 }
 
@@ -133,19 +151,44 @@ pub trait ServerboundPacket {
     fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized;
 }
 
-pub trait Readable<const S: usize> {
-    fn read(bytes: [u8; S]) -> Option<Self> where Self: Sized;
+pub trait Readable {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized;
 }
 
-impl Readable<1> for u8 {
-    fn read(bytes: [u8; 1]) -> Option<Self> where Self: Sized {
-        Some(bytes[0])
+impl Readable for u8 {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        reader.read_u8()
     }
 }
 
-impl Readable<8> for u64 {
-    fn read(bytes: [u8; 8]) -> Option<Self> where Self: Sized {
-        Some(u64::from_le_bytes(bytes))
+impl Readable for i8 {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        Some(i8::from_le_bytes(reader.read_n()?))
+    }
+}
+
+impl Readable for u16 {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        Some(u16::from_le_bytes(reader.read_n()?))
+    }
+}
+
+impl Readable for u64 {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        Some(u64::from_le_bytes(reader.read_n()?))
+    }
+}
+
+impl Readable for usize {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        Some(usize::from_le_bytes(reader.read_n()?))
+    }
+}
+
+impl Readable for String {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        let len = reader.read()?;
+        String::from_utf8(reader.read_n_slice(len)?.to_vec()).ok()
     }
 }
 
@@ -206,14 +249,26 @@ impl PacketReader {
         Self { index: 0, buf }
     }
 
-    pub fn read<T: Readable<S>, const S: usize>(&mut self) -> Option<T> {
+    pub fn read<T: Readable>(&mut self) -> Option<T> {
+        T::read(self)
+    }
+
+    pub fn read_u8(&mut self) -> Option<u8> {
+        let u8 = self.buf.get(self.index).copied();
+        self.index += 1;
+        u8
+    }
+
+    pub fn read_n<const S: usize>(&mut self) -> Option<[u8; S]> {
         let mut bytes = [0; S];
         #[allow(clippy::needless_range_loop)]
-        for i in 0..S {
-            bytes[i] = self.buf.get(self.index).copied()?;
-            self.index += 1;
-        }
-        T::read(bytes)
+        for i in 0..S { bytes[i] = self.read()?; }
+        Some(bytes)
+    }
+
+    pub fn read_n_slice(&mut self, len: usize) -> Option<&[u8]> {
+        if self.index + len >= self.buf.len() { return None };
+        Some(&self.buf[self.index..self.index + len])
     }
 }
 

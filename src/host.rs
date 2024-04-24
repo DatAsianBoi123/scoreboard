@@ -1,21 +1,32 @@
-use axum::{extract::{WebSocketUpgrade, ws::WebSocket, State, Path}, response::{IntoResponse, Response}, http::StatusCode};
+use std::time::Duration;
+
+use axum::{extract::{WebSocketUpgrade, ws::WebSocket, State}, response::{IntoResponse, Response}};
 use futures::{StreamExt, SinkExt};
 use rand::{thread_rng, Rng};
+use tokio::time::timeout;
 use tracing::info;
 
-use crate::{AppState, session_manager::{HostMessageType, UserMessage, ViewerMessage, Team}, game::{self, GameData}, packet::{ClientboundHostPacket, IntoMessage, ServerboundHostPacket, FromMessage}};
+use crate::{AppState, session_manager::{HostMessageType, UserMessage, ViewerMessage, Team}, game::GameData, packet::{ClientboundHostPacket, IntoMessage, ServerboundHostPacket, FromMessage, Either}};
 
-pub async fn ws_handler(ws: WebSocketUpgrade, Path(game_type): Path<u8>, State(state): State<AppState>) -> Response {
+pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     let session_id = thread_rng().gen();
 
-    if let Some(score_points) = game::BUILTIN.games.get(game_type as usize) {
-        ws.on_upgrade(move |ws| handle_socket(ws, session_id, score_points.data.clone(), state)).into_response()
-    } else {
-        (StatusCode::BAD_REQUEST, format!("game type with id {game_type} not found")).into_response()
-    }
+    ws.on_upgrade(move |ws| handle_socket(ws, session_id, state)).into_response()
 }
 
-async fn handle_socket(mut ws: WebSocket, session_id: u32, game_data: GameData, state: AppState) {
+async fn handle_socket(mut ws: WebSocket, session_id: u32, state: AppState) {
+    if let Ok(Some(Ok(message))) = timeout(Duration::from_secs(3), async { ws.recv().await }).await {
+        if let Some(ServerboundHostPacket::GameData { game_type }) = ServerboundHostPacket::from_message(message) {
+            let game_data = match game_type {
+                Either::Left(builtin) => builtin.data.clone(),
+                Either::Right(custom) => custom,
+            };
+            session_start(ws, session_id, game_data, state).await;
+        }
+    } else { ws.close().await.expect("can close ws"); };
+}
+
+async fn session_start(mut ws: WebSocket, session_id: u32, game_data: GameData, state: AppState) {
     let (mut host_recv, user_sender, viewer_sender) = {
         let mut lock = state.lock().await;
         let session = lock.new_session(session_id, game_data.clone());
@@ -114,6 +125,7 @@ async fn handle_socket(mut ws: WebSocket, session_id: u32, game_data: GameData, 
                         viewer_sender.send(ViewerMessage::GameUnpause(time_paused)).expect("receivers exist for viewer");
                         None
                     },
+                    ServerboundHostPacket::GameData { .. } => None,
                 };
 
                 if let Some(message) = message {
