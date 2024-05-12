@@ -5,7 +5,7 @@ A scoreboard website designed to be used with FIRST robotics competitions.
 
 ## Features
 - Hosting game sessions
-- Creating custom games (not implemented yet)
+- Creating custom games
 - Viewing games
 - Reffing games
 
