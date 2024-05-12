@@ -46,11 +46,20 @@ eventSource.addEventListener('error', _ => {
 
 /**
   * @param {{ duration: number, score_points: { name: string, category: string, points: number }[] }} data
-  * @param {{ blue_scored: { [key: number]: number }, red_scored: { [key: number]: number }, time_started: number?, ended: boolean }} state 
+  * @param {{
+    blue_scored: { [key: number]: number },
+    red_scored: { [key: number]: number },
+    time_started: number?,
+    time_paused: number,
+    paused: boolean,
+    ended: boolean
+  }} state 
   */
 function init(data, state) {
   startedTime = state.time_started;
   scorePoints = data.score_points;
+  gamePaused = state.paused;
+  timePaused = state.time_paused;
   gameEnded = state.ended;
 
   document.getElementById('loading').style.display = 'none';
