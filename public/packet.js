@@ -92,9 +92,43 @@ export class PacketWriter {
     this.#index++;
   }
 
+  writeInt8(data) {
+    this.#buf.setInt8(this.#index, data);
+    this.#index++;
+  }
+
+  writeUint16(data) {
+    this.#buf.setUint16(this.#index, data, true);
+    this.#index += 2;
+  }
+
   writeUint64(data) {
     this.#buf.setBigUint64(this.#index, data, true);
     this.#index += 8;
+  }
+
+  /**
+    * @param {string} data 
+    */
+  writeString(data) {
+    const encoded = new TextEncoder().encode(data);
+    this.writeUint64(BigInt(encoded.length));
+    for (const utf8 of encoded) {
+      this.writeUint8(utf8);
+    }
+  }
+
+  /**
+    * @param {{ duration: number, scorePoints: { name: string, category: string, points: number }[] }} data 
+    */
+  writeGameData(data) {
+    this.writeUint16(data.duration);
+
+    for (const scorePoint of data.scorePoints) {
+      this.writeString(scorePoint.name);
+      this.writeString(scorePoint.category);
+      this.writeInt8(scorePoint.points);
+    }
   }
 
   get() {

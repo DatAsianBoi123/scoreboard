@@ -9,6 +9,11 @@ if (location.protocol === 'https:') {
 rootWsUrl += location.host;
 
 /**
+  * @type {WebSocket}
+  */
+let ws;
+
+/**
   * @type {number}
   */
 let id;
@@ -33,6 +38,13 @@ const RED_ID = 1;
 
 let bluePoints = 0;
 let redPoints = 0;
+
+document.addEventListener('keydown', event => {
+  if (!event.target.classList.contains('noEnter')) return;
+  if (event.key != 'Enter') return;
+
+  event.preventDefault();
+});
 
 document.getElementById('startBtn').addEventListener('click', _ => {
   if (startedTime) return;
@@ -62,12 +74,174 @@ document.getElementById('pauseBtn').addEventListener('click', event => {
 document.getElementById('hostInfoForm').addEventListener('submit', event => {
   event.preventDefault();
 
-  host(event.target.gameType.value);
+  const gameType = event.target.gameType.value;
+
+  let data;
+  if (gameType === 'builtin') {
+    data = event.target.gameId.value;
+  } else if (gameType === 'custom') {
+    data = getGameData();
+    if (!data) {
+      alert('malformed form data');
+      return;
+    }
+  } else if (gameType === 'import') {
+    data = event.target.importCode.value;
+  }
+  host(gameType, data);
 });
+
+document.getElementById('gameTypeSelect').addEventListener('input', _ => {
+  updateHostInfoForm();
+});
+
+document.getElementById('newRowBtn').addEventListener('click', newRow);
+
+document.getElementById('copyGameDataBtn').addEventListener('click', async _ => {
+  const gameData = getGameData();
+  if (!gameData) {
+    alert('Malformed form data');
+    return;
+  }
+  const writer = new PacketWriter(gameData[1]);
+  writer.writeGameData(gameData[0]);
+
+  let binary = '';
+  const bytes = new Uint8Array(writer.get());
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  await navigator.clipboard.writeText(btoa(binary));
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Control' || event.repeat) return;
+
+  for (const row of document.getElementsByClassName('scoreTableRow')) {
+    row.classList.add('delete');
+  }
+});
+
+document.addEventListener('keyup', event => {
+  if (event.key !== 'Control') return;
+
+  for (const row of document.getElementsByClassName('scoreTableRow')) {
+    row.classList.remove('delete');
+  }
+});
+
+updateHostInfoForm();
 
 fetch(`/api/builtin-games`)
   .then(res => res.json())
   .then(retrieveBuiltinGames);
+
+function updateHostInfoForm() {
+  const gameType = document.getElementById('gameTypeSelect').value;
+  const builtinGameType = document.getElementById('builtinGameType');
+  const customGameType = document.getElementById('customGameType');
+  const importGameType = document.getElementById('importGameType');
+
+  builtinGameType.style.display = 'none';
+  customGameType.style.display = 'none';
+  importGameType.style.display = 'none';
+  if (gameType === 'builtin') builtinGameType.style.display = 'block';
+  else if (gameType === 'custom') customGameType.style.display = 'block';
+  else if (gameType === 'import') importGameType.style.display = 'block';
+}
+
+function getGameData() {
+  const form = document.getElementById('hostInfoForm');
+  const duration = (form.durationMin.value ?? 0) * 60 + parseInt(form.durationSecs.value ?? 0);
+  const scorePoints = [];
+  let length = 2;
+
+  for (const row of document.getElementsByClassName('scoreTableRow')) {
+    const name = row.getElementsByClassName('name')[0].value;
+    const category = row.getElementsByClassName('category')[0].value;
+    const points = parseInt(row.getElementsByClassName('points')[0].value);
+
+    if (!name || !category || !points) return null;
+
+    scorePoints.push({ name, category, points });
+    const encoder = new TextEncoder();
+    length += 17 + encoder.encode(name).length + encoder.encode(category).length;
+  }
+
+  return [{ duration, scorePoints }, length];
+}
+
+function newRow() {
+  const scoreTable = document.querySelector('#scoreTable tbody');
+
+  const row = scoreTable.insertRow();
+  row.addEventListener('click', event => {
+    if (!event.ctrlKey) return;
+    row.remove();
+  });
+  row.classList.add('scoreTableRow');
+
+  for (let i = 0; i < 3; i++) {
+    const td = row.insertCell();
+
+    const input = document.createElement('input');
+    input.type = i === 2 ? 'number' : 'text';
+    input.classList.add('noEnter');
+
+    if (i === 0) input.classList.add('name');
+    if (i === 2) input.classList.add('points');
+    if (i === 1) {
+      input.classList.add('category');
+
+      const wrapper = document.createElement('div');
+      wrapper.classList.add('dropdownWrapper');
+
+      input.addEventListener('focusin', _ => {
+        dropdown.replaceChildren(generateCategoryList(input));
+        dropdown.classList.add('focus');
+      });
+      input.addEventListener('focusout', _ => {
+        dropdown.classList.remove('focus');
+      });
+
+      const dropdown = document.createElement('div');
+      dropdown.classList.add('textDropdown');
+
+      wrapper.appendChild(input);
+      wrapper.appendChild(dropdown);
+
+      td.appendChild(wrapper);
+    } else {
+      td.appendChild(input);
+    }
+  }
+}
+
+function generateCategoryList(input) {
+  const ul = document.createElement('ul');
+
+  const categories = new Set();
+
+  for (const category of document.querySelectorAll('#scoreTable input.category')) {
+    const value = category.value;
+    if (value.trim() === '') continue;
+    categories.add(value);
+  }
+
+  for (const category of categories) {
+    const li = document.createElement('li');
+    li.innerText = category;
+    li.addEventListener('mousedown', event => {
+      event.preventDefault();
+      input.value = event.target.innerText;
+    });
+
+    ul.appendChild(li);
+  }
+
+  return ul;
+}
 
 /**
   * @param {{ name: string, data: any }[]} builtinGames 
@@ -75,7 +249,7 @@ fetch(`/api/builtin-games`)
 function retrieveBuiltinGames(builtinGames) {
   document.getElementById('loadingDiv').style.display = 'none';
 
-  const gameTypeSelect = document.getElementById('gameTypeSelect');
+  const gameTypeSelect = document.getElementById('gameIdSelect');
 
   for (let i = 0; i < builtinGames.length; i++) {
     const option = document.createElement('option');
@@ -87,20 +261,40 @@ function retrieveBuiltinGames(builtinGames) {
   document.getElementById('prehost').style.display = 'block';
 }
 
-function host(gameType) {
+/**
+  * @param {'builtin' | 'custom' | 'import'} gameType 
+  */
+function host(gameType, data) {
   document.getElementById('prehost').style.display = 'none';
   document.getElementById('loadingDiv').style.display = 'block';
 
-  const ws = new WebSocket(`${rootWsUrl}/ws/host`);
+  ws = new WebSocket(`${rootWsUrl}/ws/host`);
 
   ws.addEventListener('open', _ => {
     console.log('connected to ws');
     console.log(gameType);
+    console.log(data);
 
-    const writer = new PacketWriter(10)
-    writer.writeUint8(4);
-    writer.writeUint8(0);
-    writer.writeUint64(BigInt(gameType));
+    let writer;
+    if (gameType === 'builtin') {
+      writer = new PacketWriter(10)
+      writer.writeUint8(4);
+      writer.writeUint8(0);
+      writer.writeUint64(BigInt(data));
+    } else if (gameType === 'custom') {
+      writer = new PacketWriter(2 + data[1]);
+      writer.writeUint8(4);
+      writer.writeUint8(1);
+      writer.writeGameData(data[0]);
+    } else if (gameType === 'import') {
+      const bytes = atob(data);
+      writer = new PacketWriter(2 + bytes.length);
+      writer.writeUint8(4);
+      writer.writeUint8(1);
+      for (let i = 0; i < bytes.length; i++) {
+        writer.writeUint8(bytes.charCodeAt(i));
+      }
+    }
     ws.send(writer.get());
   });
 
@@ -235,10 +429,10 @@ function disconnect() {
 
 /**
   * @param {0 | 1} team 
-  * @param {bigint} scoreId 
+  * @param {number} scoreId 
   */
 function score(team, scoreId) {
-  const scorePoints = gameInfo.scorePoints[parseInt(scoreId)];
+  const scorePoints = gameInfo.scorePoints[scoreId];
   const points = scorePoints.points;
   let teamString;
   if (team === BLUE_ID) {

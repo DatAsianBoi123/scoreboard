@@ -16,9 +16,48 @@
   <div id="prehost" style="display: none;">
     <form id="hostInfoForm">
       <h1>Host Game</h1>
-      <label for="gameType"></label>
-      <select name="gameType" id="gameTypeSelect"></select>
 
+      <label for="gameTypeSelect">Game Type: </label>
+      <select name="gameType" id="gameTypeSelect">
+        <option value="builtin" selected>Builtin</option>
+        <option value="custom">Custom</option>
+        <option value="import">Import Code</option>
+      </select>
+      <br><br>
+
+      <div id="builtinGameType">
+        <label for="gameIdSelect">Game: </label>
+        <select name="gameId" id="gameIdSelect"></select>
+      </div>
+
+      <div id="importGameType">
+        <label for="importCodeInput">Code: </label>
+        <input name="importCode" id="importCodeInput" type="text" autocomplete="off">
+      </div>
+
+      <div id="customGameType">
+        <span>Duration:</span>
+
+        <input name="durationMin" id="durationMinInput" type="number" value="0">
+        <label for="durationMinInput"> minutes </label>
+
+        <input name="durationSecs" id="durationSecsInput" type="number" value="0">
+        <label for="durationSecsInput"> seconds</label>
+
+        <p>Scores:</p>
+        <table id="scoreTable">
+          <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Points</th>
+          </tr>
+        </table>
+        <button type="button" id="newRowBtn">New Row</button>
+        <br><br>
+        <button type="button" id="copyGameDataBtn">Copy Export Code</button>
+      </div>
+
+      <br>
       <input type="submit" value="Host">
     </form>
   </div>

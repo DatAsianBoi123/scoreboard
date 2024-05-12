@@ -17,7 +17,65 @@ tr.blue {
   background: skyblue;
 }
 
+tr.delete td:first-child::before {
+  content: '';
+  background: rgba(255, 20, 15, 0.3);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+tr.delete td:first-child:hover::before {
+  background: rgba(255, 20, 15, 0.5);
+}
+
 th {
   background: #37e66e;
+}
+
+td input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scoreTableRow {
+  position: relative;
+}
+
+.dropdownWrapper {
+  position: relative;
+}
+
+.dropdownWrapper .textDropdown {
+  display: none;
+  position: absolute;
+  background: lightgray;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  border-radius: 0 0 5px 5px;
+  z-index: 20;
+  overflow: hidden;
+}
+.dropdownWrapper .textDropdown.focus {
+  display: block;
+}
+
+.dropdownWrapper .textDropdown ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+.dropdownWrapper .textDropdown ul li {
+  padding: 6px;
+  cursor: pointer;
+}
+.dropdownWrapper .textDropdown ul li:hover {
+  background: rgb(230, 230, 230);
+}
+.dropdownWrapper .textDropdown ul li:not(:last-child) {
+  border-bottom: 1px solid gray;
 }
 
