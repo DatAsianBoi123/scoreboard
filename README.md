@@ -1,5 +1,5 @@
 # Scoreboard
-[Link Coming Soon...](about:blank)
+[https://scoreboard5071.shuttleapp.rs](https://scoreboard5071.shuttleapp.rs)
 
 A scoreboard website designed to be used with FIRST robotics competitions.
 
