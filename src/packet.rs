@@ -268,7 +268,9 @@ impl PacketReader {
 
     pub fn read_n_slice(&mut self, len: usize) -> Option<&[u8]> {
         if self.index + len >= self.buf.len() { return None };
-        Some(&self.buf[self.index..self.index + len])
+        let slice = &self.buf[self.index..self.index + len];
+        self.index += len;
+        Some(slice)
     }
 }
 
