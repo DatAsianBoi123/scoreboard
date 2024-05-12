@@ -17,9 +17,10 @@ impl Readable for GameData {
         let duration = reader.read()?;
 
         let mut score_points = Vec::new();
-        loop {
+        while reader.has_next() {
             if score_points.len() == 256 { break; }
-            score_points.push(reader.read()?);
+            let score_point = reader.read()?;
+            score_points.push(score_point);
         }
 
         if score_points.len() == 256 { return None; }
