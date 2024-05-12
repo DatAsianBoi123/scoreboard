@@ -103,16 +103,17 @@ function startUpdateTimeInterval(duration) {
   */
 function generateScoreCategories(scored) {
   const scoreCategories = document.getElementById('scoreCategories');
-  const categories = new Set();
+  const categories = new Map();
 
   for (let i = 0; i < scorePoints.length; i++) {
     const { category, points } = scorePoints[i];
-    if (categories.has(category)) continue;
-    categories.add(category);
-    let blueTimesScored = scored.blue[i] ?? 0;
-    let redTimesScored = scored.red[i] ?? 0;
-    scoreCategories.appendChild(generateCategory(category, { blue: blueTimesScored * points, red: redTimesScored * points }));
+    if (!categories.has(category)) categories.set(category, { blue: 0, red: 0 });
+    const categoryPoints = categories.get(category);
+    categoryPoints.blue += (scored.blue[i] ?? 0) * points;
+    categoryPoints.red += (scored.red[i] ?? 0) * points;
   }
+
+  for (const [category, points] of categories.entries()) scoreCategories.appendChild(generateCategory(category, points));
 }
 
 /**
