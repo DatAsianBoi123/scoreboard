@@ -272,6 +272,10 @@ impl PacketReader {
         self.index += len;
         Some(slice)
     }
+
+    pub fn has_next(&self) -> bool {
+        self.index < self.buf.len()
+    }
 }
 
 pub struct PacketWriter {
