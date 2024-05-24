@@ -6,7 +6,7 @@ use rand::{thread_rng, Rng};
 use tokio::time::timeout;
 use tracing::info;
 
-use crate::{AppState, session_manager::{HostMessageType, UserMessage, ViewerMessage, Team}, game::GameData, packet::{ClientboundHostPacket, IntoMessage, ServerboundHostPacket, FromMessage, Either}};
+use crate::{AppState, session_manager::{UserMessage, ViewerMessage, Team, HostMessage}, game::GameData, packet::{ClientboundHostPacket, IntoMessage, ServerboundHostPacket, FromMessage, Either}};
 
 pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     let session_id = thread_rng().gen();
