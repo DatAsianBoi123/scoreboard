@@ -38,7 +38,7 @@ macro_rules! serverbound_packet {
         #[derive(Debug)]
         pub enum $n {
             $(
-                $v $({ $($f: $t)* })?,
+                $v $({ $($f: $t),* })?,
             )*
         }
 
