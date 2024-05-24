@@ -3,7 +3,7 @@ use tokio::sync::broadcast::{Sender, Receiver};
 use futures::{StreamExt, SinkExt};
 use tracing::info;
 
-use crate::{session_manager::{Team, HostMessage, UserMessage, HostMessageType}, AppState, packet::{ServerboundUserPacket, ClientboundUserPacket, IntoMessage, FromMessage}, game::GameData};
+use crate::{session_manager::{Team, HostMessage, UserMessage}, AppState, packet::{ServerboundUserPacket, ClientboundUserPacket, IntoMessage, FromMessage}, game::GameData};
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -74,14 +74,14 @@ async fn handle_upgrade(
                             started && (score_type as usize) < session.game_data.score_points.len()
                         };
 
-                        if can_score { HostMessageType::Score(team, score_type) }
+                        if can_score { HostMessage::Score(team, score_type) }
                         else { break; }
                     },
                     None => break,
                 }
             };
 
-            if host_sender.send(HostMessage { team, message }).is_err() { break; }
+            if host_sender.send(message).is_err() { break; }
         }
     });
 

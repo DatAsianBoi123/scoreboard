@@ -47,8 +47,8 @@ async fn session_start(mut ws: WebSocket, session_id: u32, game_data: GameData, 
     let send_state = state.clone();
     let mut send_task = tokio::spawn(async move {
         while let Ok(message) = host_recv.recv().await {
-            let message = match message.message {
-                HostMessageType::Score(team, score_id) => {
+            let message = match message {
+                HostMessage::Score(team, score_id) => {
                     {
                         let mut lock = send_state.lock().await;
                         let session = lock.get_session_mut(session_id).expect("session exists");

@@ -68,14 +68,8 @@ pub struct Viewer {
     pub sender: Sender<ViewerMessage>,
 }
 
-#[derive(Clone, Copy)]
-pub struct HostMessage {
-    pub team: Team,
-    pub message: HostMessageType,
-}
-
-#[derive(Clone, Copy)]
-pub enum HostMessageType {
+#[derive(Clone, Copy, Debug)]
+pub enum HostMessage {
     Score(Team, u8),
 }
 
