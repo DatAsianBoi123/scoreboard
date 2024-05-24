@@ -65,7 +65,7 @@ macro_rules! serverbound_packet {
 clientbound_packet! {
     ClientboundHostPacket {
         0: SessionInfo(id: u32, game_data: GameData),
-        1: Score(team: Team, score_type: u8),
+        1: Score(team: Team, score_type: u8, undo: bool),
     }
 }
 
@@ -89,7 +89,7 @@ serverbound_packet! {
 
 serverbound_packet! {
     ServerboundUserPacket {
-        0: Score { score_type: u8 },
+        0: Score { score_type: u8, undo: bool },
     }
 }
 
@@ -153,6 +153,12 @@ pub trait ServerboundPacket {
 
 pub trait Readable {
     fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized;
+}
+
+impl Readable for bool {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        reader.read_u8().map(|num| num != 0)
+    }
 }
 
 impl Readable for u8 {

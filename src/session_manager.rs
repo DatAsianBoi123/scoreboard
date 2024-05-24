@@ -70,7 +70,7 @@ pub struct Viewer {
 
 #[derive(Clone, Copy, Debug)]
 pub enum HostMessage {
-    Score(Team, u8),
+    Score(Team, u8, bool),
 }
 
 #[derive(Clone, Copy)]
@@ -82,7 +82,7 @@ pub enum UserMessage {
 
 #[derive(Clone, Copy, Debug)]
 pub enum ViewerMessage {
-    Score(Team, u8),
+    Score(Team, u8, bool),
     GameStart(u64),
     GameEnd,
     GamePause,

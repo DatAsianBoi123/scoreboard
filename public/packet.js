@@ -87,6 +87,10 @@ export class PacketWriter {
     this.#buf = new DataView(new ArrayBuffer(length));
   }
 
+  writeBool(data) {
+    this.writeUint8(data ? 1 : 0);
+  }
+
   writeUint8(data) {
     this.#buf.setUint8(this.#index, data);
     this.#index++;

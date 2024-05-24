@@ -119,9 +119,10 @@ function disconnect() {
 }
 
 function score(id) {
-  const writer = new PacketWriter(2);
+  const writer = new PacketWriter(3);
   writer.writeUint8(0);
   writer.writeUint8(id);
+  writer.writeBool(document.getElementById('undoCheckbox').checked);
   ws.send(writer.get());
 }
 

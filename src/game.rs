@@ -41,12 +41,28 @@ impl Writable for GameData {
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct GameState {
-    pub blue_scored: HashMap<u8, i32>,
-    pub red_scored: HashMap<u8, i32>,
+    pub blue_scored: HashMap<u8, ScoredRecord>,
+    pub red_scored: HashMap<u8, ScoredRecord>,
     pub time_started: Option<u64>,
     pub time_paused: u64,
     pub paused: bool,
     pub ended: bool,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ScoredRecord {
+    pub scored: i32,
+    pub undo: i32,
+}
+
+impl ScoredRecord {
+    pub fn one_scored() -> Self {
+        ScoredRecord { scored: 1, undo: 0 }
+    }
+
+    pub fn one_undo() -> Self {
+        ScoredRecord { scored: 0, undo: 1 }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]

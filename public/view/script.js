@@ -47,8 +47,8 @@ eventSource.addEventListener('error', _ => {
 /**
   * @param {{ duration: number, score_points: { name: string, category: string, points: number }[] }} data
   * @param {{
-    blue_scored: { [key: number]: number },
-    red_scored: { [key: number]: number },
+    blue_scored: { [key: number]: { scored: number, undo: number } },
+    red_scored: { [key: number]: { scored: number, undo: number } },
     time_started: number?,
     time_paused: number,
     paused: boolean,
@@ -99,7 +99,7 @@ function startUpdateTimeInterval(duration) {
 }
 
 /**
-  * @param {{ red: { [key: number]: number }, blue: { [key: number]: number } }} scored 
+  * @param {{ red: { [key: number]: { scored: number, undo: number } }, blue: { [key: number]: { scored: number, undo: number } } }} scored 
   */
 function generateScoreCategories(scored) {
   const scoreCategories = document.getElementById('scoreCategories');
@@ -109,8 +109,11 @@ function generateScoreCategories(scored) {
     const { category, points } = scorePoints[i];
     if (!categories.has(category)) categories.set(category, { blue: 0, red: 0 });
     const categoryPoints = categories.get(category);
-    categoryPoints.blue += (scored.blue[i] ?? 0) * points;
-    categoryPoints.red += (scored.red[i] ?? 0) * points;
+
+    const blueScored = scored.blue[i] ?? { scored: 0, undo: 0 };
+    const redScored = scored.red[i] ?? { scored: 0, undo: 0 };
+    categoryPoints.blue += (blueScored.scored - blueScored.undo) * points;
+    categoryPoints.red += (redScored.scored - redScored.undo) * points;
   }
 
   for (const [category, points] of categories.entries()) scoreCategories.appendChild(generateCategory(category, points));
@@ -144,11 +147,11 @@ function generateCategory(category, pointsScored) {
 }
 
 /**
-  * @param {{ team: 'blue' | 'red', score_id: number }} content 
+  * @param {{ team: 'blue' | 'red', score_id: number, undo: boolean }} content 
   */
 function score(content) {
   const scored = scorePoints[content.score_id];
-  const pointsScored = scored.points;
+  const pointsScored = (content.undo ? -1 : 1) * scored.points;
   if (content.team === 'blue') {
     points.blue += pointsScored;
   } else if (content.team === 'red') {
@@ -166,12 +169,13 @@ function updatePoints() {
 }
 
 /**
-  * @param {{ [key: number]: number }} scored 
+  * @param {{ [key: number]: { scored: number, undo: number } }} scored 
   */
 function getScored(scored) {
   let totalScored = 0;
   for (const [scoreId, timesScored] of Object.entries(scored)) {
-    totalScored += scorePoints[parseInt(scoreId)].points * timesScored;
+    const points = scorePoints[parseInt(scoreId)].points;
+    totalScored += points * (timesScored.scored - timesScored.undo);
   }
   return totalScored;
 }

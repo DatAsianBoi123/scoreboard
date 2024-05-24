@@ -335,8 +335,9 @@ function host(gameType, data) {
 
         const team = reader.readUint8();
         const scoreId = reader.readUint8();
+        const undo = reader.readBool();
 
-        score(team, scoreId);
+        score(team, scoreId, undo);
       }
     }
   });
@@ -430,10 +431,11 @@ function disconnect() {
 /**
   * @param {0 | 1} team 
   * @param {number} scoreId 
+  * @param {boolean} undo 
   */
-function score(team, scoreId) {
+function score(team, scoreId, undo) {
   const scorePoints = gameInfo.scorePoints[scoreId];
-  const points = scorePoints.points;
+  const points = (undo ? -1 : 1) * scorePoints.points;
   let teamString;
   if (team === BLUE_ID) {
     bluePoints += points;
@@ -445,13 +447,14 @@ function score(team, scoreId) {
     teamString = 'red';
   }
 
-  addScoreLog(teamString, scorePoints);
+  addScoreLog(teamString, scorePoints, undo);
 
-  console.log(`${teamString} team scored ${scorePoints.name} (${points < 0 ? '-' : '+'}${Math.abs(points)})`);
+  const scoreBeginning = undo ? `${teamString} team undo scored` : `${teamString} team scored`;
+  console.log(`${scoreBeginning} (${points < 0 ? '-' : '+'}${Math.abs(points)})`);
 }
 
-function addScoreLog(team, scorePoints) {
-  const points = scorePoints.points;
+function addScoreLog(team, scorePoints, undo) {
+  const points = (undo ? -1 : 1) * scorePoints.points;
 
   const row = document.createElement('tr');
   row.classList.add(team);
@@ -460,7 +463,7 @@ function addScoreLog(team, scorePoints) {
   teamCell.innerText = team;
 
   const scoredCell = document.createElement('td');
-  scoredCell.innerText = scorePoints.name;
+  scoredCell.innerText = (undo ? 'UNDO ' : '') + scorePoints.name;
 
   const pointsCell = document.createElement('td');
   pointsCell.innerText = `${points < 0 ? '-' : '+'}${Math.abs(points)}`;
@@ -477,7 +480,8 @@ function addScoreLog(team, scorePoints) {
 }
 
 function getCurrentTimeLeft() {
-  return gameInfo.duration * 1000 - (Date.now() - (startedTime + pausedTime));
+  const now = gamePaused ? pauseStarted : Date.now();
+  return gameInfo.duration * 1000 - (now - (startedTime + pausedTime));
 }
 
 function formatTime(time) {

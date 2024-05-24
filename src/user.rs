@@ -65,7 +65,7 @@ async fn handle_upgrade(
         while let Some(Ok(message)) = recv.next().await {
             let message = {
                 match ServerboundUserPacket::from_message(message) {
-                    Some(ServerboundUserPacket::Score { score_type }) => {
+                    Some(ServerboundUserPacket::Score { score_type, undo }) => {
                         let can_score = {
                             let lock = state.lock().await;
                             let session = lock.get_session(id).expect("session exists");
@@ -74,7 +74,7 @@ async fn handle_upgrade(
                             started && (score_type as usize) < session.game_data.score_points.len()
                         };
 
-                        if can_score { HostMessage::Score(team, score_type) }
+                        if can_score { HostMessage::Score(team, score_type, undo) }
                         else { break; }
                     },
                     None => break,

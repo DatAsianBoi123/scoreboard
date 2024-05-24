@@ -43,7 +43,7 @@ pub async fn sse_handler(
 #[serde(tag = "type", content = "content", rename_all = "snake_case")]
 enum ViewerEvent {
     SessionInfo { state: GameState, data: GameData },
-    Score { team: Team, score_id: u8 },
+    Score { team: Team, score_id: u8, undo: bool },
     GameStart { time_started: u64 },
     GameEnd,
     GamePause,
@@ -53,7 +53,7 @@ enum ViewerEvent {
 impl From<ViewerMessage> for ViewerEvent {
     fn from(value: ViewerMessage) -> Self {
         match value {
-            ViewerMessage::Score(team, score_id) => Self::Score { team, score_id },
+            ViewerMessage::Score(team, score_id, undo) => Self::Score { team, score_id, undo },
             ViewerMessage::GameStart(time_started) => Self::GameStart { time_started },
             ViewerMessage::GameEnd => Self::GameEnd,
             ViewerMessage::GamePause => Self::GamePause,

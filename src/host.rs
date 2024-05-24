@@ -6,7 +6,7 @@ use rand::{thread_rng, Rng};
 use tokio::time::timeout;
 use tracing::info;
 
-use crate::{AppState, session_manager::{UserMessage, ViewerMessage, Team, HostMessage}, game::GameData, packet::{ClientboundHostPacket, IntoMessage, ServerboundHostPacket, FromMessage, Either}};
+use crate::{AppState, session_manager::{UserMessage, ViewerMessage, Team, HostMessage}, game::{GameData, ScoredRecord}, packet::{ClientboundHostPacket, IntoMessage, ServerboundHostPacket, FromMessage, Either}};
 
 pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     let session_id = thread_rng().gen();
@@ -48,7 +48,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, game_data: GameData, 
     let mut send_task = tokio::spawn(async move {
         while let Ok(message) = host_recv.recv().await {
             let message = match message {
-                HostMessage::Score(team, score_id) => {
+                HostMessage::Score(team, score_id, undo) => {
                     {
                         let mut lock = send_state.lock().await;
                         let session = lock.get_session_mut(session_id).expect("session exists");
@@ -57,10 +57,15 @@ async fn session_start(mut ws: WebSocket, session_id: u32, game_data: GameData, 
                             Team::Blue => &mut game_state.blue_scored,
                             Team::Red => &mut game_state.red_scored,
                         };
-                        map.entry(score_id).and_modify(|scored| *scored += 1).or_insert(1);
+                        map.entry(score_id)
+                            .and_modify(|scored| if undo { scored.undo += 1; } else { scored.scored += 1; })
+                            .or_insert_with(|| {
+                                if undo { ScoredRecord::one_undo() }
+                                else { ScoredRecord::one_scored() }
+                            });
                     }
-                    send_viewer_sender.send(ViewerMessage::Score(team, score_id)).ok()
-                        .map(|_| ClientboundHostPacket::Score(team, score_id).into_message())
+                    send_viewer_sender.send(ViewerMessage::Score(team, score_id, undo)).ok()
+                        .map(|_| ClientboundHostPacket::Score(team, score_id, undo).into_message())
                 }
             };
 
