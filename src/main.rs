@@ -23,11 +23,11 @@ async fn main() -> ShuttleAxum {
         .init();
 
     let router = Router::new()
-        .nest_service("/", ServeDir::new("public"))
+        .fallback_service(ServeDir::new("public"))
         .route("/api/builtin-games", get(game::get_all_builtin))
         .route("/ws/host", get(host::ws_handler))
-        .route("/ws/join/:id/:team_id", get(user::ws_handler))
-        .route("/sse/view/:id", get(view::sse_handler))
+        .route("/ws/join/{id}/{team_id}", get(user::ws_handler))
+        .route("/sse/view/{id}", get(view::sse_handler))
         .with_state(Arc::new(Mutex::new(SessionManager::new())))
         .layer(TraceLayer::new_for_http());
 

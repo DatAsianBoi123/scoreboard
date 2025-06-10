@@ -86,8 +86,8 @@ async fn handle_upgrade(
     });
 
     tokio::select! {
-        _ = &mut close_task => recv_task.abort(),
-        _ = &mut recv_task => close_task.abort(),
+        _ = &mut close_task => {},
+        _ = &mut recv_task => {},
     };
 
     info!("[{id}] user disconnected");

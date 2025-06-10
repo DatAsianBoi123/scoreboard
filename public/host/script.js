@@ -55,9 +55,15 @@ document.getElementById('startBtn').addEventListener('click', _ => {
 
 document.getElementById('endBtn').addEventListener('click', event => {
   if (!startedTime) return;
-  event.target.disabled = true;
-  document.getElementById('pauseBtn').disabled = true;
-  endGame();
+
+  if (gameEnded) {
+    event.target.disabled = true;
+    revealScore();
+  } else {
+    event.target.innerText = 'Reveal Score';
+    document.getElementById('pauseBtn').disabled = true;
+    endGame();
+  }
 });
 
 document.getElementById('pauseBtn').addEventListener('click', event => {
@@ -397,6 +403,13 @@ function endGame() {
   ws.send(writer.get());
 
   gameEnded = true;
+}
+
+function revealScore() {
+  const writer = new PacketWriter(1);
+  writer.writeUint8(5);
+  ws.send(writer.get());
+
   startedTime = null;
 }
 
@@ -480,6 +493,8 @@ function addScoreLog(team, scorePoints, undo) {
 }
 
 function getCurrentTimeLeft() {
+  if (gameEnded) return 0;
+
   const now = gamePaused ? pauseStarted : Date.now();
   return gameInfo.duration * 1000 - (now - (startedTime + pausedTime));
 }

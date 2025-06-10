@@ -32,6 +32,12 @@ ws.addEventListener('close', _ => {
   disconnect();
 });
 
+ws.addEventListener('error', _ => {
+  console.log('websocket errored');
+
+  disconnect();
+});
+
 ws.addEventListener('message', async event => {
   const reader = new PacketReader(await event.data.arrayBuffer());
   switch (reader.readUint8()) {

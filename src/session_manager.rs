@@ -86,6 +86,7 @@ pub enum ViewerMessage {
     GameStart(u64),
     GameEnd,
     GamePause,
+    RevealScore,
     GameUnpause(u64),
 }
 

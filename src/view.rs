@@ -46,6 +46,7 @@ enum ViewerEvent {
     Score { team: Team, score_id: u8, undo: bool },
     GameStart { time_started: u64 },
     GameEnd,
+    RevealScore,
     GamePause,
     GameUnpause { paused_time: u64 },
 }
@@ -57,6 +58,7 @@ impl From<ViewerMessage> for ViewerEvent {
             ViewerMessage::GameStart(time_started) => Self::GameStart { time_started },
             ViewerMessage::GameEnd => Self::GameEnd,
             ViewerMessage::GamePause => Self::GamePause,
+            ViewerMessage::RevealScore => Self::RevealScore,
             ViewerMessage::GameUnpause(paused_time) => Self::GameUnpause { paused_time }
         }
     }

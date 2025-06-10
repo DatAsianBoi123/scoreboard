@@ -13,13 +13,19 @@ let gamePaused = false;
 let scorePoints;
 
 const points = {
-  blue: 0,
-  red: 0,
+  blue: {
+    total: 0,
+    categories: { }
+  },
+  red: {
+    total: 0,
+    categories: { }
+  },
 };
 
 eventSource.addEventListener('message', event => {
   /**
-    * @type {{ type: 'session_info' | 'score' | 'game_start' | 'game_end' | 'game_pause' | 'game_unpause', content: any }}
+    * @type {{ type: 'session_info' | 'score' | 'game_start' | 'game_end' | 'reveal_score' | 'game_pause' | 'game_unpause', content: any }}
     */
   const data = JSON.parse(event.data);
 
@@ -27,11 +33,16 @@ eventSource.addEventListener('message', event => {
     init(data.content.data, data.content.state);
   } else if (data.type === 'score') {
     score(data.content);
+    if (!gameEnded) {
+      updatePoints();
+    }
   } else if (data.type === 'game_start') {
     startedTime = data.content.time_started;
   } else if (data.type === 'game_end') {
     gameEnded = true;
+  } else if (data.type === 'reveal_score') {
     startedTime = null;
+    updatePoints();
   } else if (data.type === 'game_pause') {
     gamePaused = true;
   } else if (data.type === 'game_unpause') {
@@ -67,10 +78,11 @@ function init(data, state) {
 
   points.blue = getScored(state.blue_scored);
   points.red = getScored(state.red_scored);
-  updatePoints();
 
   generateScoreCategories({ red: state.red_scored, blue: state.blue_scored });
   startUpdateTimeInterval(data.duration);
+
+  updatePoints();
 }
 
 function startUpdateTimeInterval(duration) {
@@ -79,22 +91,25 @@ function startUpdateTimeInterval(duration) {
     if (gamePaused) return;
 
     let text;
-    if (startedTime) {
+    if (gameEnded) {
+      text = '0:00';
+    } else if (startedTime) {
       const timeLeft = duration * 1000 - (Date.now() - (startedTime + timePaused));
       if (timeLeft <= 0) text = '0:00';
       text = formatTime(timeLeft);
-    } else if (gameEnded) {
-      text = '0:00';
-      if (points.red > points.blue) {
-        document.getElementById('redAlliance').classList.add('winner');
-      } else if (points.blue > points.red) {
-        document.getElementById('blueAlliance').classList.add('winner');
-      }
-      clearInterval(id);
     } else {
       text = formatTime(duration * 1000);
     }
     if (timeLeftText.innerText !== text) timeLeftText.innerText = text;
+
+    if (gameEnded && !startedTime) {
+      if (points.red.total > points.blue.total) {
+        document.getElementById('redAlliance').classList.add('winner');
+      } else if (points.blue.total > points.red.total) {
+        document.getElementById('blueAlliance').classList.add('winner');
+      }
+      clearInterval(id);
+    }
   }, 1);
 }
 
@@ -153,31 +168,45 @@ function score(content) {
   const scored = scorePoints[content.score_id];
   const pointsScored = (content.undo ? -1 : 1) * scored.points;
   if (content.team === 'blue') {
-    points.blue += pointsScored;
+    points.blue.total += pointsScored;
+    points.blue.categories[scored.category] ??= 0;
+    points.blue.categories[scored.category] += scored.points;
   } else if (content.team === 'red') {
-    points.red += pointsScored;
+    points.red.total += pointsScored;
+    points.red.categories[scored.category] ??= 0;
+    points.red.categories[scored.category] += scored.points;
   }
-  updatePoints();
-
-  const categoryPoints = document.getElementById(`${scored.category}:${content.team}Points`);
-  categoryPoints.innerText = +categoryPoints.innerText + pointsScored;
 }
 
 function updatePoints() {
-  document.getElementById('bluePoints').innerText = points.blue;
-  document.getElementById('redPoints').innerText = points.red;
+  document.getElementById('bluePoints').innerText = points.blue.total;
+  document.getElementById('redPoints').innerText = points.red.total;
+
+  for (const scored of scorePoints) {
+    const blueCategoryPoints = document.getElementById(`${scored.category}:bluePoints`);
+    blueCategoryPoints.innerText = points.blue.categories[scored.category] ?? 0;
+
+    const redCategoryPoints = document.getElementById(`${scored.category}:redPoints`);
+    redCategoryPoints.innerText = points.red.categories[scored.category] ?? 0;
+  }
 }
 
 /**
   * @param {{ [key: number]: { scored: number, undo: number } }} scored 
   */
 function getScored(scored) {
-  let totalScored = 0;
+  const allianceScored = {
+    total: 0,
+    categories: {},
+  };
   for (const [scoreId, timesScored] of Object.entries(scored)) {
-    const points = scorePoints[parseInt(scoreId)].points;
-    totalScored += points * (timesScored.scored - timesScored.undo);
+    const score = scorePoints[parseInt(scoreId)];
+    const points = score.points;
+    allianceScored.total += points * (timesScored.scored - timesScored.undo);
+    allianceScored.categories[score.category] ??= 0;
+    allianceScored.categories[score.category] += points;
   }
-  return totalScored;
+  return allianceScored;
 }
 
 function nestedPInDiv(text) {

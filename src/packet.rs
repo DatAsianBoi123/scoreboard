@@ -84,6 +84,7 @@ serverbound_packet! {
         2: PauseGame,
         3: UnpauseGame { time_paused: u64 },
         4: GameData { game_type: Either<&'static BuiltinGame, GameData> },
+        5: RevealScore,
     }
 }
 
@@ -121,7 +122,7 @@ where T: ClientboundPacket
         let mut writer = PacketWriter::new();
         writer.write_u8(self.id());
         self.write(&mut writer);
-        Message::Binary(writer.get())
+        Message::Binary(writer.get().into())
     }
 }
 
@@ -134,7 +135,7 @@ where T: ServerboundPacket
 {
     fn from_message(message: Message) -> Option<Self> {
         if let Message::Binary(binary) = message {
-            T::read(&mut PacketReader::new(binary.into()))
+            T::read(&mut PacketReader::new(binary.as_ref().into()))
         } else {
             None
         }

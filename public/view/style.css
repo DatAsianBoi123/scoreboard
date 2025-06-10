@@ -27,10 +27,12 @@
 .container.left.winner::before {
   content: '🏆WINNER';
   text-align: left;
+  left: 0;
 }
 .container.right.winner::before {
   content: 'WINNER🏆';
   text-align: right;
+  right: 0;
 }
 
 .right {
