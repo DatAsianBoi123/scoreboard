@@ -39,6 +39,9 @@ const RED_ID = 1;
 let bluePoints = 0;
 let redPoints = 0;
 
+const blueTeams = [];
+const redTeams = [];
+
 document.addEventListener('keydown', event => {
   if (!event.target.classList.contains('noEnter')) return;
   if (event.key != 'Enter') return;
@@ -121,6 +124,18 @@ document.getElementById('copyGameDataBtn').addEventListener('click', async _ => 
   await navigator.clipboard.writeText(btoa(binary));
 });
 
+document.getElementById('blueAddTeam').addEventListener('submit', event => {
+  event.preventDefault();
+
+  addTeamName('blue', event.target);
+});
+
+document.getElementById('redAddTeam').addEventListener('submit', event => {
+  event.preventDefault();
+
+  addTeamName('red', event.target);
+});
+
 document.addEventListener('keydown', event => {
   if (event.key !== 'Control' || event.repeat) return;
 
@@ -137,9 +152,35 @@ document.addEventListener('keyup', event => {
   }
 });
 
+function addTeamName(team, form) {
+  const teams = document.getElementById(`${team}Teams`);
+  const nameInput = form.teamName;
+
+  const name = nameInput.value.trim();
+  if (name.length == 0) return;
+
+  nameInput.value = "";
+
+  const li = document.createElement('li');
+  li.appendChild(document.createTextNode(`${name} `));
+
+  const deleteInput = document.createElement('input');
+  deleteInput.type = 'button';
+  deleteInput.value = '-';
+  deleteInput.addEventListener('click', event => {
+    event.target.parentElement.remove();
+  });
+  li.appendChild(deleteInput);
+  
+  teams.appendChild(li);
+
+  if (team === 'red') redTeams.push(name);
+  else if (team === 'blue') blueTeams.push(name);
+}
+
 updateHostInfoForm();
 
-fetch(`/api/builtin-games`)
+fetch('/api/builtin-games')
   .then(res => res.json())
   .then(retrieveBuiltinGames);
 
@@ -281,21 +322,38 @@ function host(gameType, data) {
     console.log(gameType);
     console.log(data);
 
+    let blueNameSize = blueTeams.length * 8;
+    for (const name of blueTeams) {
+      blueNameSize += name.length;
+    }
+
+    let redNameSize = redTeams.length * 8;
+    for (const name of redTeams) {
+      redNameSize += name.length;
+    }
+    const nameSize = 16 + blueNameSize + redNameSize;
+
     let writer;
     if (gameType === 'builtin') {
-      writer = new PacketWriter(10)
-      writer.writeUint8(4);
+      writer = new PacketWriter(nameSize + 10);
+    } else if (gameType === 'custom') {
+      writer = new PacketWriter(nameSize + 2 + data[1]);
+    } else if (gameType === 'import') {
+      writer = new PacketWriter(nameSize + 2 + atob(data).length);
+    }
+
+    writer.writeUint8(4);
+    writer.writeStringArray(blueTeams);
+    writer.writeStringArray(redTeams);
+    
+    if (gameType === 'builtin') {
       writer.writeUint8(0);
       writer.writeUint64(BigInt(data));
     } else if (gameType === 'custom') {
-      writer = new PacketWriter(2 + data[1]);
-      writer.writeUint8(4);
       writer.writeUint8(1);
       writer.writeGameData(data[0]);
     } else if (gameType === 'import') {
       const bytes = atob(data);
-      writer = new PacketWriter(2 + bytes.length);
-      writer.writeUint8(4);
       writer.writeUint8(1);
       for (let i = 0; i < bytes.length; i++) {
         writer.writeUint8(bytes.charCodeAt(i));

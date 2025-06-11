@@ -47,6 +47,17 @@ export class PacketReader {
     return String.fromCharCode(...utf8);
   }
 
+  readStringArray() {
+    const len = this.readUint64();
+    const array = [];
+
+    for (let i = 0; i < len; i++) {
+      array[i] = this.readStringLength();
+    }
+
+    return array;
+  }
+
   /**
     * @returns {{ duration: number, scorePoints: { name: string, category: string, points: number }[] }}
     */
@@ -119,6 +130,16 @@ export class PacketWriter {
     this.writeUint64(BigInt(encoded.length));
     for (const utf8 of encoded) {
       this.writeUint8(utf8);
+    }
+  }
+
+  /**
+   * @param {string[]} data
+   */
+  writeStringArray(data) {
+    this.writeUint64(BigInt(data.length));
+    for (const string of data) {
+      this.writeString(string);
     }
   }
 

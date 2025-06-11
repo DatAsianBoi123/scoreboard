@@ -35,10 +35,50 @@
   right: 0;
 }
 
+.container .teams {
+  position: absolute;
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+  top: 50%;
+  list-style-type: none;
+}
+.container .teams li {
+  padding: 22px;
+  text-transform: uppercase;
+  min-width: 300px;
+  font-size: 1.4rem;
+  font-family: 'Lato', cursive;
+  font-weight: bold;
+  text-align: center;
+  margin: 10px;
+  color: white;
+  box-shadow: 0 5px 30px 2px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+}
+
+.container.left .teams {
+  left: calc(50% - 95px);
+  transform: translate(-50%, -50%);
+}
+
+.container.right .teams {
+  right: calc(50% - 95px);
+  transform: translate(50%, -50%);
+}
+
+.container.blue .teams li {
+  background: #3262f0;
+}
+
+.container.red .teams li {
+  background: #ed1818;
+}
+
 .right {
   right: 0;
 }
-.right div {
+.right .points {
   float: left;
 }
 .right p {
@@ -48,7 +88,7 @@
 .left {
   left: 0;
 }
-.left div {
+.left .points {
   float: right;
 }
 .left p {

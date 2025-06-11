@@ -30,7 +30,7 @@ eventSource.addEventListener('message', event => {
   const data = JSON.parse(event.data);
 
   if (data.type === 'session_info') {
-    init(data.content.data, data.content.state);
+    init(data.content.blue_teams, data.content.red_teams, data.content.data, data.content.state);
   } else if (data.type === 'score') {
     score(data.content);
     if (!gameEnded) {
@@ -52,10 +52,12 @@ eventSource.addEventListener('message', event => {
 });
 
 eventSource.addEventListener('error', _ => {
-  window.location.href = '/';
+  // window.location.href = '/';
 });
 
 /**
+  * @param {string[]} blueTeams
+  * @param {string[]} redTeams
   * @param {{ duration: number, score_points: { name: string, category: string, points: number }[] }} data
   * @param {{
     blue_scored: { [key: number]: { scored: number, undo: number } },
@@ -66,7 +68,7 @@ eventSource.addEventListener('error', _ => {
     ended: boolean
   }} state 
   */
-function init(data, state) {
+function init(blueTeams, redTeams, data, state) {
   startedTime = state.time_started;
   scorePoints = data.score_points;
   gamePaused = state.paused;
@@ -80,6 +82,8 @@ function init(data, state) {
   points.red = getScored(state.red_scored);
 
   generateScoreCategories({ red: state.red_scored, blue: state.blue_scored });
+  generateTeamList('blue', blueTeams);
+  generateTeamList('red', redTeams);
   startUpdateTimeInterval(data.duration);
 
   updatePoints();
@@ -90,16 +94,7 @@ function startUpdateTimeInterval(duration) {
   const id = setInterval(() => {
     if (gamePaused) return;
 
-    let text;
-    if (gameEnded) {
-      text = '0:00';
-    } else if (startedTime) {
-      const timeLeft = duration * 1000 - (Date.now() - (startedTime + timePaused));
-      if (timeLeft <= 0) text = '0:00';
-      text = formatTime(timeLeft);
-    } else {
-      text = formatTime(duration * 1000);
-    }
+    const text = formatTime(getTimeLeft(duration));
     if (timeLeftText.innerText !== text) timeLeftText.innerText = text;
 
     if (gameEnded && !startedTime) {
@@ -111,6 +106,17 @@ function startUpdateTimeInterval(duration) {
       clearInterval(id);
     }
   }, 1);
+}
+
+function getTimeLeft(duration) {
+  if (gameEnded) {
+    return 0;
+  } else if (startedTime) {
+    const timeLeft = duration * 1000 - (Date.now() - (startedTime + timePaused));
+    return Math.max(0, timeLeft);
+  } else {
+    return duration * 1000;
+  }
 }
 
 /**
@@ -159,6 +165,19 @@ function generateCategory(category, pointsScored) {
   parent.appendChild(rightPoints);
 
   return parent;
+}
+
+/**
+ * @param {'blue' | 'red'} team
+ * @param {string[]} names
+ */
+function generateTeamList(team, names) {
+  const teams = document.getElementById(`${team}Teams`);
+  for (const name of names) {
+    const li = document.createElement('li');
+    li.innerText = name;
+    teams.appendChild(li);
+  }
 }
 
 /**

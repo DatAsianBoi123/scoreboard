@@ -14,7 +14,7 @@ impl SessionManager {
         SessionManager { sessions: HashMap::new() }
     }
 
-    pub fn new_session(&mut self, id: u32, game_data: GameData) -> &Session {
+    pub fn new_session(&mut self, id: u32, blue_teams: Vec<String>, red_teams: Vec<String>, game_data: GameData) -> &Session {
         let (host_sender, host_recv) = broadcast::channel(10);
         let (user_sender, user_recv) = broadcast::channel(10);
         let (viewer_sender, viewer_recv) = broadcast::channel(10);
@@ -23,7 +23,7 @@ impl SessionManager {
         let user = User { sender: user_sender, recv: user_recv };
         let viewer = Viewer { sender: viewer_sender, recv: viewer_recv };
 
-        self.sessions.entry(id).or_insert(Session { host, user, viewer, game_data, game_state: Default::default() })
+        self.sessions.entry(id).or_insert(Session { host, user, viewer, blue_teams, red_teams, game_data, game_state: Default::default() })
     }
 
     pub fn get_session(&self, id: u32) -> Option<&Session> {
@@ -51,6 +51,8 @@ pub struct Session {
     pub viewer: Viewer,
     pub game_data: GameData,
     pub game_state: GameState,
+    pub blue_teams: Vec<String>,
+    pub red_teams: Vec<String>,
 }
 
 pub struct Host {

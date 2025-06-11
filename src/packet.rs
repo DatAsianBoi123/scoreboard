@@ -83,7 +83,7 @@ serverbound_packet! {
         1: EndGame,
         2: PauseGame,
         3: UnpauseGame { time_paused: u64 },
-        4: GameData { game_type: Either<&'static BuiltinGame, GameData> },
+        4: GameData { blue_teams: Vec<String>, red_teams: Vec<String>, game_type: Either<&'static BuiltinGame, GameData> },
         5: RevealScore,
     }
 }
@@ -199,6 +199,19 @@ impl Readable for String {
     }
 }
 
+impl<T: Readable> Readable for Vec<T> {
+    fn read(reader: &mut PacketReader) -> Option<Self> where Self: Sized {
+        let len: usize = reader.read()?;
+
+        let mut vec = Vec::with_capacity(len);
+        for _ in 0..len {
+            vec.push(reader.read()?);
+        }
+
+        Some(vec)
+    }
+}
+
 pub trait Writable {
     fn write(self, writer: &mut PacketWriter);
 }
@@ -246,6 +259,13 @@ impl Writable for String {
     }
 }
 
+impl<T: Writable> Writable for Vec<T> {
+    fn write(self, writer: &mut PacketWriter) {
+        writer.write(self.len());
+        writer.write_all(self);
+    }
+}
+
 pub struct PacketReader {
     index: usize,
     buf: Box<[u8]>,
@@ -268,8 +288,9 @@ impl PacketReader {
 
     pub fn read_n<const S: usize>(&mut self) -> Option<[u8; S]> {
         let mut bytes = [0; S];
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..S { bytes[i] = self.read()?; }
+        for byte in bytes.iter_mut() {
+            *byte = self.read()?;
+        }
         Some(bytes)
     }
 

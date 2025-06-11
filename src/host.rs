@@ -16,20 +16,20 @@ pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> 
 
 async fn handle_socket(mut ws: WebSocket, session_id: u32, state: AppState) {
     if let Ok(Some(Ok(message))) = timeout(Duration::from_secs(3), async { ws.recv().await }).await {
-        if let Some(ServerboundHostPacket::GameData { game_type }) = ServerboundHostPacket::from_message(message) {
+        if let Some(ServerboundHostPacket::GameData { blue_teams, red_teams, game_type }) = ServerboundHostPacket::from_message(message) {
             let game_data = match game_type {
                 Either::Left(builtin) => builtin.data.clone(),
                 Either::Right(custom) => custom,
             };
-            session_start(ws, session_id, game_data, state).await;
+            session_start(ws, session_id, blue_teams, red_teams, game_data, state).await;
         }
     } else { ws.close().await.expect("can close ws"); };
 }
 
-async fn session_start(mut ws: WebSocket, session_id: u32, game_data: GameData, state: AppState) {
+async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<String>, red_teams: Vec<String>, game_data: GameData, state: AppState) {
     let (mut host_recv, user_sender, viewer_sender) = {
         let mut lock = state.lock().await;
-        let session = lock.new_session(session_id, game_data.clone());
+        let session = lock.new_session(session_id, blue_teams, red_teams, game_data.clone());
         (session.host.sender.subscribe(), session.user.sender.clone(), session.viewer.sender.clone())
     };
 

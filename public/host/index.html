@@ -14,6 +14,9 @@
   </div>
 
   <div id="prehost" style="display: none;">
+    <form id="blueAddTeam"></form>
+    <form id="redAddTeam"></form>
+
     <form id="hostInfoForm">
       <h1>Host Game</h1>
 
@@ -52,10 +55,23 @@
             <th>Points</th>
           </tr>
         </table>
-        <button type="button" id="newRowBtn">New Row</button>
+        <input type="button" id="newRowBtn" value="New Row">
         <br><br>
-        <button type="button" id="copyGameDataBtn">Copy Export Code</button>
+        <input type="button" id="copyGameDataBtn" value="Copy Export Code">
       </div>
+      <br>
+
+      <p><strong>Blue Teams</strong></p>
+      <ol id="blueTeams"></ol>
+      <input type="text" name="teamName" placeholder="Team Name" autocomplete="off" form="blueAddTeam">
+      <input type="submit" value="Add Team" form="blueAddTeam">
+      <br>
+
+      <p><strong>Red Teams</strong></p>
+      <ol id="redTeams"></ol>
+      <input type="text" name="teamName" placeholder="Team Name" autocomplete="off" form="redAddTeam">
+      <input type="submit" value="Add Team" form="redAddTeam">
+      <br>
 
       <br>
       <input type="submit" value="Host">
