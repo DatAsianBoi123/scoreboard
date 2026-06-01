@@ -83,7 +83,7 @@ serverbound_packet! {
         1: EndGame,
         2: PauseGame,
         3: UnpauseGame { time_paused: u64 },
-        4: GameData { blue_teams: Vec<String>, red_teams: Vec<String>, game_type: Either<&'static BuiltinGame, GameData> },
+        4: GameData { match_number: u16, blue_teams: Vec<String>, red_teams: Vec<String>, game_type: Either<&'static BuiltinGame, GameData> },
         5: RevealScore,
     }
 }

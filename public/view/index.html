@@ -18,27 +18,30 @@
   </div>
 
   <div id="main" style="display: none;">
-    <div class="container left blue" id="blueAlliance">
-      <div class="points">
-        <span id="bluePoints">-</span>
+    <header id="matchHeader">Match -</header>
+    <main>
+      <div class="container left blue" id="blueAlliance">
+        <div class="points">
+          <span id="bluePoints">-</span>
+        </div>
+
+        <ul id="blueTeams" class="teams"></ul>
       </div>
 
-      <ul id="blueTeams" class="teams"></ul>
-    </div>
+      <div class="container right red" id="redAlliance">
+        <div class="points">
+          <span id="redPoints">-</span>
+        </div>
 
-    <div class="container right red" id="redAlliance">
-      <div class="points">
-        <span id="redPoints">-</span>
+        <ul id="redTeams" class="teams"></ul>
       </div>
 
-      <ul id="redTeams" class="teams"></ul>
-    </div>
+      <div class="scoreCats" id="scoreCategories"></div>
 
-    <div class="scoreCats" id="scoreCategories"></div>
-
-    <div class="timeLeft">
-      <p id="timeLeftText">-:--</p>
-    </div>
+      <div class="timeLeft">
+        <p id="timeLeftText">-:--</p>
+      </div>
+    </main>
   </div>
 </body>
 </html>

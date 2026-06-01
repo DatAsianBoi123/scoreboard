@@ -1,3 +1,28 @@
+body {
+  margin: 0;
+  height: 100vh;
+}
+
+#main {
+  height: 100%;
+  flex-direction: column;
+}
+
+#main header {
+  background: black;
+  padding: 5px;
+  flex-basis: 20px;
+  text-transform: uppercase;
+  font-size: 1rem;
+  font-family: 'Lato', cursive;
+  color: white;
+}
+
+#main main {
+  position: relative;
+  flex-grow: 1;
+}
+
 .red {
   background: #9c0909;
 }
@@ -7,15 +32,12 @@
 }
 
 .container {
-  position: fixed;
-  margin: 0;
-  top: 0;
+  position: absolute;
   height: 100%;
   width: 50%;
 }
-.container.winner::before {
+.container::before {
   position: absolute;
-  background: gold;
   width: 100%;
   height: 180px;
   line-height: 180px;
@@ -23,6 +45,9 @@
   font-weight: bold;
   font-size: 6.8rem;
   z-index: 0;
+}
+.container.winner::before {
+  background: gold;
 }
 .container.left.winner::before {
   content: '🏆WINNER';
@@ -33,6 +58,29 @@
   content: 'WINNER🏆';
   text-align: right;
   right: 0;
+}
+
+.container.tied::before {
+  background-color: gray;
+  color: white;
+}
+.container.left.tied::before {
+  content: '🏁TIED';
+  text-align: left;
+  left: 0;
+}
+.container.right.tied::before {
+  content: 'TIED🏁';
+  text-align: right;
+  right: 0;
+}
+
+.container.left {
+  grid-area: left;
+}
+
+.container.right {
+  grid-area: right;
 }
 
 .container .teams {
@@ -77,6 +125,7 @@
 
 .right {
   right: 0;
+  float: right;
 }
 .right .points {
   float: left;
@@ -87,6 +136,7 @@
 
 .left {
   left: 0;
+  float: left;
 }
 .left .points {
   float: right;

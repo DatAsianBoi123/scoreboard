@@ -63,8 +63,6 @@ document.getElementById('endBtn').addEventListener('click', event => {
     event.target.disabled = true;
     revealScore();
   } else {
-    event.target.innerText = 'Reveal Score';
-    document.getElementById('pauseBtn').disabled = true;
     endGame();
   }
 });
@@ -97,7 +95,7 @@ document.getElementById('hostInfoForm').addEventListener('submit', event => {
   } else if (gameType === 'import') {
     data = event.target.importCode.value;
   }
-  host(gameType, data);
+  host(event.target.matchNumber.value, gameType, data);
 });
 
 document.getElementById('gameTypeSelect').addEventListener('input', _ => {
@@ -174,8 +172,8 @@ function addTeamName(team, form) {
   
   teams.appendChild(li);
 
-  if (team === 'red') redTeams.push(name);
-  else if (team === 'blue') blueTeams.push(name);
+  if (team === 'blue') blueTeams.push(name);
+  else if (team === 'red') redTeams.push(name);
 }
 
 updateHostInfoForm();
@@ -309,9 +307,10 @@ function retrieveBuiltinGames(builtinGames) {
 }
 
 /**
+  * @param {number} matchNumber
   * @param {'builtin' | 'custom' | 'import'} gameType 
   */
-function host(gameType, data) {
+function host(matchNumber, gameType, data) {
   document.getElementById('prehost').style.display = 'none';
   document.getElementById('loadingDiv').style.display = 'block';
 
@@ -335,14 +334,15 @@ function host(gameType, data) {
 
     let writer;
     if (gameType === 'builtin') {
-      writer = new PacketWriter(nameSize + 10);
+      writer = new PacketWriter(nameSize + 12);
     } else if (gameType === 'custom') {
-      writer = new PacketWriter(nameSize + 2 + data[1]);
+      writer = new PacketWriter(nameSize + 4 + data[1]);
     } else if (gameType === 'import') {
-      writer = new PacketWriter(nameSize + 2 + atob(data).length);
+      writer = new PacketWriter(nameSize + 4 + atob(data).length);
     }
 
     writer.writeUint8(4);
+    writer.writeUint16(matchNumber);
     writer.writeStringArray(blueTeams);
     writer.writeStringArray(redTeams);
     
@@ -437,6 +437,7 @@ function startUpdateTimeInterval() {
       const timeLeft = getCurrentTimeLeft();
       if (timeLeft <= 0) {
         endGame();
+        clearInterval(updateTimeIntervalId);
         return;
       }
       time = formatTime(timeLeft);
@@ -461,6 +462,8 @@ function endGame() {
   ws.send(writer.get());
 
   gameEnded = true;
+  document.getElementById('endBtn').innerText = 'Reveal Score';
+  document.getElementById('pauseBtn').disabled = true;
 }
 
 function revealScore() {

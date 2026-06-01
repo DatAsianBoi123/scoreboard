@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use axum::{Router, routing::get};
 use session_manager::SessionManager;
-use shuttle_axum::ShuttleAxum;
 use tokio::sync::Mutex;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 
@@ -17,8 +16,8 @@ mod packet;
 
 pub type AppState = Arc<Mutex<SessionManager>>;
 
-#[shuttle_runtime::main]
-async fn main() -> ShuttleAxum {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt()
         .init();
 
@@ -31,6 +30,7 @@ async fn main() -> ShuttleAxum {
         .with_state(Arc::new(Mutex::new(SessionManager::new())))
         .layer(TraceLayer::new_for_http());
 
-    Ok(router.into())
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, router).await.unwrap();
 }
 

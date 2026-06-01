@@ -30,7 +30,7 @@ eventSource.addEventListener('message', event => {
   const data = JSON.parse(event.data);
 
   if (data.type === 'session_info') {
-    init(data.content.blue_teams, data.content.red_teams, data.content.data, data.content.state);
+    init(data.content.blue_teams, data.content.red_teams, data.content.match_number, data.content.data, data.content.state);
   } else if (data.type === 'score') {
     score(data.content);
     if (!gameEnded) {
@@ -68,7 +68,7 @@ eventSource.addEventListener('error', _ => {
     ended: boolean
   }} state 
   */
-function init(blueTeams, redTeams, data, state) {
+function init(blueTeams, redTeams, matchNumber, data, state) {
   startedTime = state.time_started;
   scorePoints = data.score_points;
   gamePaused = state.paused;
@@ -76,7 +76,7 @@ function init(blueTeams, redTeams, data, state) {
   gameEnded = state.ended;
 
   document.getElementById('loading').style.display = 'none';
-  document.getElementById('main').style.display = 'block';
+  document.getElementById('main').style.display = 'flex';
 
   points.blue = getScored(state.blue_scored);
   points.red = getScored(state.red_scored);
@@ -84,6 +84,8 @@ function init(blueTeams, redTeams, data, state) {
   generateScoreCategories({ red: state.red_scored, blue: state.blue_scored });
   generateTeamList('blue', blueTeams);
   generateTeamList('red', redTeams);
+  document.getElementById('matchHeader').innerText = `Match ${matchNumber}`;
+
   startUpdateTimeInterval(data.duration);
 
   updatePoints();
@@ -102,6 +104,9 @@ function startUpdateTimeInterval(duration) {
         document.getElementById('redAlliance').classList.add('winner');
       } else if (points.blue.total > points.red.total) {
         document.getElementById('blueAlliance').classList.add('winner');
+      } else if (points.blue.total === points.red.total) {
+        document.getElementById('blueAlliance').classList.add('tied');
+        document.getElementById('redAlliance').classList.add('tied');
       }
       clearInterval(id);
     }

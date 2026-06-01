@@ -17,16 +17,17 @@ pub async fn sse_handler(
             let recv = session.viewer.sender.subscribe();
             let blue_teams = session.blue_teams.clone();
             let red_teams = session.red_teams.clone();
+            let match_number = session.match_number;
             let data = session.game_data.clone();
             let state = session.game_state.clone();
-            (recv, blue_teams, red_teams, data, state)
+            (recv, blue_teams, red_teams, match_number, data, state)
         })
     };
 
-    if let Some((viewer_recv, blue_teams, red_teams, data, state)) = res {
+    if let Some((viewer_recv, blue_teams, red_teams, match_number, data, state)) = res {
         info!("[{session_id}] viewer connected");
 
-        let init_event = ViewerEvent::SessionInfo { blue_teams, red_teams, data, state };
+        let init_event = ViewerEvent::SessionInfo { blue_teams, red_teams, match_number, data, state };
 
         let stream = BroadcastStream::new(viewer_recv)
             .map(|viewer_message| {
@@ -44,7 +45,7 @@ pub async fn sse_handler(
 #[derive(Serialize)]
 #[serde(tag = "type", content = "content", rename_all = "snake_case")]
 enum ViewerEvent {
-    SessionInfo { blue_teams: Vec<String>, red_teams: Vec<String>, state: GameState, data: GameData },
+    SessionInfo { match_number: u16, blue_teams: Vec<String>, red_teams: Vec<String>, state: GameState, data: GameData },
     Score { team: Team, score_id: u8, undo: bool },
     GameStart { time_started: u64 },
     GameEnd,
