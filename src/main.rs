@@ -18,8 +18,7 @@ pub type AppState = Arc<Mutex<SessionManager>>;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .init();
+    tracing_subscriber::fmt::init();
 
     let router = Router::new()
         .fallback_service(ServeDir::new("public"))
