@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_state(Arc::new(Mutex::new(SessionManager::new())))
         .layer(TraceLayer::new_for_http());
 
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     info!("listening on {addr}...");
     Ok(axum::serve(listener, router).await?)
