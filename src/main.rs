@@ -1,11 +1,12 @@
 #![deny(unused_extern_crates)]
 
-use std::sync::Arc;
+use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc};
 
 use axum::{Router, routing::get};
 use session_manager::SessionManager;
 use tokio::sync::Mutex;
 use tower_http::{services::ServeDir, trace::TraceLayer};
+use tracing::info;
 
 mod host;
 mod session_manager;
@@ -17,8 +18,12 @@ mod packet;
 pub type AppState = Arc<Mutex<SessionManager>>;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt::init();
+
+    let port = std::env::var("PORT")
+        .map(|port| port.parse())
+        .unwrap_or(Ok(3000u16))?;
 
     let router = Router::new()
         .fallback_service(ServeDir::new("public"))
@@ -29,7 +34,9 @@ async fn main() {
         .with_state(Arc::new(Mutex::new(SessionManager::new())))
         .layer(TraceLayer::new_for_http());
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, router).await.unwrap();
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    info!("listening on {addr}...");
+    Ok(axum::serve(listener, router).await?)
 }
 
