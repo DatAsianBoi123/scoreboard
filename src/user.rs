@@ -1,9 +1,9 @@
-use axum::{extract::{WebSocketUpgrade, Path, State, ws::WebSocket}, response::{IntoResponse, Response}, http::StatusCode};
+use axum::{extract::{Path, State, WebSocketUpgrade, ws::{Message, WebSocket}}, http::StatusCode, response::{IntoResponse, Response}};
 use tokio::sync::broadcast::{Sender, Receiver};
 use futures::{StreamExt, SinkExt};
-use tracing::info;
+use tracing::{error, info};
 
-use crate::{session_manager::{Team, HostMessage, UserMessage}, AppState, packet::{ServerboundUserPacket, ClientboundUserPacket, IntoMessage, FromMessage}, game::GameData};
+use crate::{session_manager::{Team, HostMessage, UserMessage}, AppState, packet::{ServerboundUserPacket, ClientboundUserPacket, IntoBytes, FromBytes}, game::GameData};
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -37,7 +37,7 @@ async fn handle_upgrade(
     mut user_recv: Receiver<UserMessage>,
     state: AppState,
 ) {
-    if let Err(err) = ws.send(ClientboundUserPacket::SessionInfo(started, game_data).into_message()).await {
+    if let Err(err) = ws.send(Message::Binary(ClientboundUserPacket::SessionInfo(started, game_data).into_bytes())).await {
         info!("[{id}] could not send user score info. {err:?}");
         ws.close().await.expect("can close ws");
         return;
@@ -47,14 +47,14 @@ async fn handle_upgrade(
 
     let mut close_task = tokio::spawn(async move {
         while let Ok(message) = user_recv.recv().await {
-            let message = match message {
-                UserMessage::GameStart => Some(ClientboundUserPacket::StartGame().into_message()),
-                UserMessage::GameEnd => Some(ClientboundUserPacket::EndGame().into_message()),
+            let bytes = match message {
+                UserMessage::GameStart => Some(ClientboundUserPacket::StartGame().into_bytes()),
+                UserMessage::GameEnd => Some(ClientboundUserPacket::EndGame().into_bytes()),
                 UserMessage::Close => None,
             };
 
-            if let Some(message) = message {
-                if sender.send(message).await.is_err() { break; }
+            if let Some(bytes) = bytes {
+                if sender.send(Message::Binary(bytes)).await.is_err() { break; }
             } else {
                 break;
             }
@@ -62,26 +62,32 @@ async fn handle_upgrade(
     });
 
     let mut recv_task = tokio::spawn(async move {
-        while let Some(Ok(message)) = recv.next().await {
-            let message = {
-                match ServerboundUserPacket::from_message(message) {
-                    Some(ServerboundUserPacket::Score { score_type, undo }) => {
-                        let can_score = {
-                            let lock = state.lock().await;
-                            let session = lock.get_session(id).expect("session exists");
-                            let started = session.game_state.time_started.is_some();
+        while let Some(message) = recv.next().await {
+            match message {
+                Ok(Message::Binary(bytes)) => {
+                    let message = {
+                        match ServerboundUserPacket::from_bytes(bytes) {
+                            Some(ServerboundUserPacket::Score { score_type, undo }) => {
+                                let can_score = {
+                                    let lock = state.lock().await;
+                                    let session = lock.get_session(id).expect("session exists");
+                                    let started = session.game_state.time_started.is_some();
 
-                            started && (score_type as usize) < session.game_data.score_points.len()
-                        };
+                                    started && (score_type as usize) < session.game_data.score_points.len()
+                                };
 
-                        if can_score { HostMessage::Score(team, score_type, undo) }
-                        else { break; }
-                    },
-                    None => break,
-                }
-            };
+                                if can_score { HostMessage::Score(team, score_type, undo) }
+                                else { break; }
+                            },
+                            None => break,
+                        }
+                    };
 
-            if host_sender.send(message).is_err() { break; }
+                    if host_sender.send(message).is_err() { break; }
+                },
+                Ok(_) => {},
+                Err(err) => error!("[user {id}] {err}"),
+            }
         }
     });
 

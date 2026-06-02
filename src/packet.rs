@@ -1,4 +1,4 @@
-use axum::extract::ws::Message;
+use axum::body::Bytes;
 
 use crate::{game::{GameData, BuiltinGame}, session_manager::Team};
 
@@ -111,34 +111,30 @@ impl<L: Readable, R: Readable> Readable for Either<L, R> {
     }
 }
 
-pub trait IntoMessage {
-    fn into_message(self) -> Message;
+pub trait IntoBytes {
+    fn into_bytes(self) -> Bytes;
 }
 
-impl<T> IntoMessage for T
+impl<T> IntoBytes for T
 where T: ClientboundPacket
 {
-    fn into_message(self) -> Message {
+    fn into_bytes(self) -> Bytes {
         let mut writer = PacketWriter::new();
         writer.write_u8(self.id());
         self.write(&mut writer);
-        Message::Binary(writer.get().into())
+        writer.get().into()
     }
 }
 
-pub trait FromMessage {
-    fn from_message(message: Message) -> Option<Self> where Self: Sized;
+pub trait FromBytes {
+    fn from_bytes(bytes: Bytes) -> Option<Self> where Self: Sized;
 }
 
-impl<T> FromMessage for T
+impl<T> FromBytes for T
 where T: ServerboundPacket
 {
-    fn from_message(message: Message) -> Option<Self> {
-        if let Message::Binary(binary) = message {
-            T::read(&mut PacketReader::new(binary.as_ref().into()))
-        } else {
-            None
-        }
+    fn from_bytes(bytes: Bytes) -> Option<Self> {
+        T::read(&mut PacketReader::new(bytes.as_ref()))
     }
 }
 
@@ -266,14 +262,14 @@ impl<T: Writable> Writable for Vec<T> {
     }
 }
 
-pub struct PacketReader {
+pub struct PacketReader<'a> {
     index: usize,
-    buf: Box<[u8]>,
+    bytes: &'a [u8],
 }
 
-impl PacketReader {
-    pub fn new(buf: Box<[u8]>) -> Self {
-        Self { index: 0, buf }
+impl<'a> PacketReader<'a> {
+    pub fn new(bytes: &'a [u8]) -> Self {
+        Self { index: 0, bytes }
     }
 
     pub fn read<T: Readable>(&mut self) -> Option<T> {
@@ -281,7 +277,7 @@ impl PacketReader {
     }
 
     pub fn read_u8(&mut self) -> Option<u8> {
-        let u8 = self.buf.get(self.index).copied();
+        let u8 = self.bytes.get(self.index).copied();
         self.index += 1;
         u8
     }
@@ -295,14 +291,14 @@ impl PacketReader {
     }
 
     pub fn read_n_slice(&mut self, len: usize) -> Option<&[u8]> {
-        if self.index + len >= self.buf.len() { return None };
-        let slice = &self.buf[self.index..self.index + len];
+        if self.index + len >= self.bytes.len() { return None };
+        let slice = &self.bytes[self.index..self.index + len];
         self.index += len;
         Some(slice)
     }
 
     pub fn has_next(&self) -> bool {
-        self.index < self.buf.len()
+        self.index < self.bytes.len()
     }
 }
 

@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use axum::{extract::{WebSocketUpgrade, ws::WebSocket, State}, response::{IntoResponse, Response}};
+use axum::{extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}}, response::{IntoResponse, Response}};
 use futures::{StreamExt, SinkExt};
 use rand::{thread_rng, Rng};
-use tokio::time::timeout;
+use tokio::{sync::mpsc, time::timeout};
 use tracing::{error, info};
 
-use crate::{AppState, session_manager::{UserMessage, ViewerMessage, Team, HostMessage}, game::{GameData, ScoredRecord}, packet::{ClientboundHostPacket, IntoMessage, ServerboundHostPacket, FromMessage, Either}};
+use crate::{AppState, game::GameData, packet::{ClientboundHostPacket, Either, FromBytes, IntoBytes, ServerboundHostPacket}, session_manager::{HostMessage, Session, Team, UserMessage, ViewerMessage}};
 
 pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     let session_id = thread_rng().gen();
@@ -15,8 +15,8 @@ pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> 
 }
 
 async fn handle_socket(mut ws: WebSocket, session_id: u32, state: AppState) {
-    if let Ok(Some(Ok(message))) = timeout(Duration::from_secs(3), async { ws.recv().await }).await {
-        if let Some(ServerboundHostPacket::GameData { match_number, blue_teams, red_teams, game_type }) = ServerboundHostPacket::from_message(message) {
+    if let Ok(Some(Ok(Message::Binary(bytes)))) = timeout(Duration::from_secs(3), async { ws.recv().await }).await {
+        if let Some(ServerboundHostPacket::GameData { match_number, blue_teams, red_teams, game_type }) = ServerboundHostPacket::from_bytes(bytes) {
             let game_data = match game_type {
                 Either::Left(builtin) => builtin.data.clone(),
                 Either::Right(custom) => custom,
@@ -33,7 +33,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
         (session.host.sender.subscribe(), session.user.sender.clone(), session.viewer.sender.clone())
     };
 
-    if let Err(err) = ws.send(ClientboundHostPacket::SessionInfo(session_id, game_data.clone()).into_message()).await {
+    if let Err(err) = ws.send(Message::Binary(ClientboundHostPacket::SessionInfo(session_id, game_data.clone()).into_bytes())).await {
         info!("[{session_id}] could not send info message! {err:?}");
         ws.close().await.expect("can close websocket");
         return;
@@ -42,51 +42,61 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
     info!("[{session_id}] created");
 
     let (mut sender, mut receiver) = ws.split();
+    let (ws_send, mut ws_recv) = mpsc::unbounded_channel();
 
-    let send_viewer_sender = viewer_sender.clone();
-    let send_state = state.clone();
-    let mut send_task = tokio::spawn(async move {
-        loop {
-            let message = match host_recv.recv().await {
-                Ok(HostMessage::Score(team, score_id, undo)) => {
-                    {
-                        let mut lock = send_state.lock().await;
-                        let session = lock.get_session_mut(session_id).expect("session exists");
-                        let game_state = &mut session.game_state;
-                        let map = match team {
-                            Team::Blue => &mut game_state.blue_scored,
-                            Team::Red => &mut game_state.red_scored,
-                        };
-                        map.entry(score_id)
-                            .and_modify(|scored| if undo { scored.undo += 1; } else { scored.scored += 1; })
-                            .or_insert_with(|| {
-                                if undo { ScoredRecord::one_undo() }
-                                else { ScoredRecord::one_scored() }
-                            });
-                    }
-                    send_viewer_sender.send(ViewerMessage::Score(team, score_id, undo)).ok()
-                        .map(|_| ClientboundHostPacket::Score(team, score_id, undo).into_message())
-                }
-                Err(err) => {
-                    error!("[{session_id}] {err}");
-                    None
-                }
-            };
-
-            if let Some(message) = message {
-                if sender.send(message).await.is_err() { break; }
-            } else {
+    let mut ws_send_task = tokio::spawn(async move {
+        while let Some(recv) = ws_recv.recv().await {
+            if sender.send(recv).await.is_err() {
                 break;
             }
         }
     });
 
+    let ping_ws_send = ws_send.clone();
+    let mut ping_task = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+
+            if ping_ws_send.send(Message::Ping(Default::default())).is_err() { break; }
+        }
+    });
+
+    let recv_message_viewer_sender = viewer_sender.clone();
+    let recv_message_state = state.clone();
+    let recv_message_ws_send = ws_send.clone();
+    let mut recv_message_task = tokio::spawn(async move {
+        loop {
+            let message = match host_recv.recv().await {
+                Ok(message) => message,
+                Err(err) => {
+                    error!("[{session_id}] {err}");
+                    continue;
+                },
+            };
+            let message = {
+                let mut manager = recv_message_state.lock().await;
+                let Some(session) = manager.get_session_mut(session_id) else {
+                    error!("[{session_id}] session already closed");
+                    break;
+                };
+                let (viewer_message, message) = handle_host_message(message, session);
+                // an error means there are no viewers
+                let _ = recv_message_viewer_sender.send(viewer_message);
+                message
+            };
+
+            if recv_message_ws_send.send(Message::Binary(message.into_bytes())).is_err() { break; }
+        }
+    });
+
     let recv_state = state.clone();
-    let mut receive_task = tokio::spawn(async move {
+    let mut recv_task = tokio::spawn(async move {
         while let Some(message) = receiver.next().await {
             match message {
-                Ok(message) => {
-                    if let Some(packet) = ServerboundHostPacket::from_message(message) {
+                Ok(Message::Binary(bytes)) => {
+                    if let Some(packet) = ServerboundHostPacket::from_bytes(bytes) {
                         info!("[{session_id}] received message: {packet:?}");
 
                         let message = match packet {
@@ -156,17 +166,21 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                         error!("[{session_id}] malformed host packet");
                         break;
                     }
-                }
+                },
+                Ok(Message::Pong(_)) => info!("pong!"),
+                Ok(_) => {},
                 Err(err) => {
                     error!("{err}");
-                }
+                },
             }
         }
     });
 
     tokio::select! {
-        _ = &mut send_task => {},
-        _ = &mut receive_task => {},
+        _ = &mut ping_task => {},
+        _ = &mut ws_send_task => {},
+        _ = &mut recv_message_task => {},
+        _ = &mut recv_task => {},
     };
 
     {
@@ -175,5 +189,24 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
     }
 
     info!("[{session_id}] disconnected");
+}
+
+fn handle_host_message(message: HostMessage, session: &mut Session) -> (ViewerMessage, ClientboundHostPacket) {
+    match message {
+        HostMessage::Score(team, score_id, undo) => {
+            let scored = match team {
+                Team::Red => &mut session.game_state.red_scored,
+                Team::Blue => &mut session.game_state.blue_scored,
+            };
+            let scores = scored.entry(score_id).or_default();
+            if undo {
+                scores.undo += 1;
+            } else {
+                scores.scored += 1;
+            }
+
+            (ViewerMessage::Score(team, score_id, undo), ClientboundHostPacket::Score(team, score_id, undo))
+        },
+    }
 }
 
