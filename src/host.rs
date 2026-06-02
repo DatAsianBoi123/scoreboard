@@ -170,7 +170,6 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                         break;
                     }
                 },
-                Ok(Message::Pong(_)) => info!("pong!"),
                 Ok(_) => {},
                 Err(err) => {
                     error!("[{session_id}] {err}");
