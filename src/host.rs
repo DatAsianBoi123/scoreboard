@@ -3,7 +3,7 @@ use std::time::Duration;
 use axum::{extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}}, response::{IntoResponse, Response}};
 use futures::{StreamExt, SinkExt};
 use rand::{thread_rng, Rng};
-use tokio::{sync::mpsc, time::timeout};
+use tokio::{sync::{broadcast::error::RecvError, mpsc}, time::timeout};
 use tracing::{error, info};
 
 use crate::{AppState, game::GameData, packet::{ClientboundHostPacket, Either, FromBytes, IntoBytes, ServerboundHostPacket}, session_manager::{HostMessage, Session, Team, UserMessage, ViewerMessage}};
@@ -70,9 +70,12 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
         loop {
             let message = match host_recv.recv().await {
                 Ok(message) => message,
-                Err(err) => {
-                    error!("[{session_id}] {err}");
+                Err(RecvError::Lagged(amount)) => {
+                    error!("[{session_id}] receiver lagged by {amount}");
                     continue;
+                },
+                Err(RecvError::Closed) => {
+                    break;
                 },
             };
             let message = {
@@ -170,7 +173,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                 Ok(Message::Pong(_)) => info!("pong!"),
                 Ok(_) => {},
                 Err(err) => {
-                    error!("{err}");
+                    error!("[{session_id}] {err}");
                 },
             }
         }
