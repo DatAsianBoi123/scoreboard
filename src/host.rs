@@ -3,7 +3,7 @@ use std::time::Duration;
 use axum::{extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}}, response::{IntoResponse, Response}};
 use futures::{StreamExt, SinkExt};
 use rand::{thread_rng, Rng};
-use tokio::{sync::{broadcast::error::RecvError, mpsc}, time::timeout};
+use tokio::{sync::{broadcast::error::RecvError, mpsc}, time::{MissedTickBehavior, timeout}};
 use tracing::{error, info};
 
 use crate::{AppState, game::GameData, packet::{ClientboundHostPacket, Either, FromBytes, IntoBytes, ServerboundHostPacket}, session_manager::{HostMessage, Session, Team, UserMessage, ViewerMessage}};
@@ -54,6 +54,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
 
     let ping_task = async {
         let mut interval = tokio::time::interval(Duration::from_secs(30));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
         loop {
             interval.tick().await;

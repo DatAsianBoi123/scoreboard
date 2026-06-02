@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::{extract::{Path, State, WebSocketUpgrade, ws::{Message, WebSocket}}, http::StatusCode, response::{IntoResponse, Response}};
-use tokio::sync::{broadcast::{Receiver, Sender}, mpsc};
+use tokio::{sync::{broadcast::{Receiver, Sender}, mpsc}, time::MissedTickBehavior};
 use futures::{SinkExt, StreamExt};
 use tracing::{error, info};
 
@@ -56,6 +56,7 @@ async fn handle_upgrade(
 
     let ping_task = async {
         let mut interval = tokio::time::interval(Duration::from_secs(30));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
 
         loop {
