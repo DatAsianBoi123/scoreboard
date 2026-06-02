@@ -81,7 +81,7 @@ function init(blueTeams, redTeams, matchNumber, data, state) {
   points.blue = getScored(state.blue_scored);
   points.red = getScored(state.red_scored);
 
-  generateScoreCategories({ red: state.red_scored, blue: state.blue_scored });
+  generateScoreCategories();
   generateTeamList('blue', blueTeams);
   generateTeamList('red', redTeams);
   document.getElementById('matchHeader').innerText = `Match ${matchNumber}`;
@@ -124,32 +124,23 @@ function getTimeLeft(duration) {
   }
 }
 
-/**
-  * @param {{ red: { [key: number]: { scored: number, undo: number } }, blue: { [key: number]: { scored: number, undo: number } } }} scored 
-  */
-function generateScoreCategories(scored) {
+function generateScoreCategories() {
   const scoreCategories = document.getElementById('scoreCategories');
-  const categories = new Map();
+  const categories = [];
 
-  for (let i = 0; i < scorePoints.length; i++) {
-    const { category, points } = scorePoints[i];
-    if (!categories.has(category)) categories.set(category, { blue: 0, red: 0 });
-    const categoryPoints = categories.get(category);
-
-    const blueScored = scored.blue[i] ?? { scored: 0, undo: 0 };
-    const redScored = scored.red[i] ?? { scored: 0, undo: 0 };
-    categoryPoints.blue += (blueScored.scored - blueScored.undo) * points;
-    categoryPoints.red += (redScored.scored - redScored.undo) * points;
+  for (const { category } of scorePoints) {
+    if (!categories.includes(category)) {
+      scoreCategories.appendChild(generateCategory(category));
+      categories.push(category);
+    }
   }
-
-  for (const [category, points] of categories.entries()) scoreCategories.appendChild(generateCategory(category, points));
 }
 
 /**
   * @param {string} category 
   * @param {{ blue: number, red: number }} pointsScored 
   */
-function generateCategory(category, pointsScored) {
+function generateCategory(category) {
   const parent = document.createElement('div');
   parent.classList.add('category');
 
@@ -157,11 +148,11 @@ function generateCategory(category, pointsScored) {
   name.innerText = category;
   name.classList.add('name');
 
-  const [leftPoints, leftPointsText] = nestedPInDiv(pointsScored.blue);
+  const [leftPoints, leftPointsText] = nestedPInDiv(0);
   leftPointsText.id = `${category}:bluePoints`;
   leftPoints.classList.add('points', 'left');
 
-  const [rightPoints, rightPointsText] = nestedPInDiv(pointsScored.red);
+  const [rightPoints, rightPointsText] = nestedPInDiv(0);
   rightPointsText.id = `${category}:redPoints`;
   rightPoints.classList.add('points', 'right');
 
@@ -191,14 +182,19 @@ function generateTeamList(team, names) {
 function score(content) {
   const scored = scorePoints[content.score_id];
   const pointsScored = (content.undo ? -1 : 1) * scored.points;
+  let teamPoints;
   if (content.team === 'blue') {
-    points.blue.total += pointsScored;
-    points.blue.categories[scored.category] ??= 0;
-    points.blue.categories[scored.category] += scored.points;
+    teamPoints = points.blue;
   } else if (content.team === 'red') {
-    points.red.total += pointsScored;
-    points.red.categories[scored.category] ??= 0;
-    points.red.categories[scored.category] += scored.points;
+    teamPoints = points.red;
+  }
+
+  teamPoints.total += pointsScored;
+  teamPoints.categories[scored.category] ??= 0;
+  if (content.undo) {
+    teamPoints.categories[scored.category] -= scored.points;
+  } else {
+    teamPoints.categories[scored.category] += scored.points;
   }
 }
 
@@ -226,9 +222,10 @@ function getScored(scored) {
   for (const [scoreId, timesScored] of Object.entries(scored)) {
     const score = scorePoints[parseInt(scoreId)];
     const points = score.points;
-    allianceScored.total += points * (timesScored.scored - timesScored.undo);
+    const awardedPoints = points * (timesScored.scored - timesScored.undo);
+    allianceScored.total += awardedPoints
     allianceScored.categories[score.category] ??= 0;
-    allianceScored.categories[score.category] += points;
+    allianceScored.categories[score.category] += awardedPoints;
   }
   return allianceScored;
 }
