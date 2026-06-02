@@ -44,29 +44,25 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
     let (mut sender, mut receiver) = ws.split();
     let (ws_send, mut ws_recv) = mpsc::unbounded_channel();
 
-    let mut ws_send_task = tokio::spawn(async move {
+    let ws_send_task = async {
         while let Some(recv) = ws_recv.recv().await {
             if sender.send(recv).await.is_err() {
                 break;
             }
         }
-    });
+    };
 
-    let ping_ws_send = ws_send.clone();
-    let mut ping_task = tokio::spawn(async move {
+    let ping_task = async {
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         interval.tick().await;
         loop {
             interval.tick().await;
 
-            if ping_ws_send.send(Message::Ping(Default::default())).is_err() { break; }
+            if ws_send.send(Message::Ping(Default::default())).is_err() { break; }
         }
-    });
+    };
 
-    let recv_message_viewer_sender = viewer_sender.clone();
-    let recv_message_state = state.clone();
-    let recv_message_ws_send = ws_send.clone();
-    let mut recv_message_task = tokio::spawn(async move {
+    let recv_message_task = async {
         loop {
             let message = match host_recv.recv().await {
                 Ok(message) => message,
@@ -79,23 +75,22 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                 },
             };
             let message = {
-                let mut manager = recv_message_state.lock().await;
+                let mut manager = state.lock().await;
                 let Some(session) = manager.get_session_mut(session_id) else {
                     error!("[{session_id}] session already closed");
                     break;
                 };
                 let (viewer_message, message) = handle_host_message(message, session);
                 // an error means there are no viewers
-                let _ = recv_message_viewer_sender.send(viewer_message);
+                let _ = viewer_sender.send(viewer_message);
                 message
             };
 
-            if recv_message_ws_send.send(Message::Binary(message.into_bytes())).is_err() { break; }
+            if ws_send.send(Message::Binary(message.into_bytes())).is_err() { break; }
         }
-    });
+    };
 
-    let recv_state = state.clone();
-    let mut recv_task = tokio::spawn(async move {
+    let recv_task = async {
         while let Some(message) = receiver.next().await {
             match message {
                 Ok(Message::Binary(bytes)) => {
@@ -105,7 +100,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                         let message = match packet {
                             ServerboundHostPacket::StartGame { time_started } => {
                                 {
-                                    let mut lock = recv_state.lock().await;
+                                    let mut lock = state.lock().await;
                                     let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
                                     if game_state.time_started.is_some() { continue; }
                                     game_state.time_started = Some(time_started);
@@ -116,7 +111,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                             },
                             ServerboundHostPacket::EndGame => {
                                 {
-                                    let mut lock = recv_state.lock().await;
+                                    let mut lock = state.lock().await;
                                     let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
                                     if game_state.time_started.is_none() { continue; }
                                     game_state.ended = true;
@@ -127,7 +122,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                             },
                             ServerboundHostPacket::RevealScore => {
                                 {
-                                    let mut lock = recv_state.lock().await;
+                                    let mut lock = state.lock().await;
                                     let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
                                     if !game_state.ended { continue; }
                                     game_state.time_started = None;
@@ -138,7 +133,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                             },
                             ServerboundHostPacket::PauseGame => {
                                 {
-                                    let mut lock = recv_state.lock().await;
+                                    let mut lock = state.lock().await;
                                     let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
                                     if game_state.paused { continue; }
                                     game_state.paused = true;
@@ -149,7 +144,7 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                             },
                             ServerboundHostPacket::UnpauseGame { time_paused } => {
                                 {
-                                    let mut lock = recv_state.lock().await;
+                                    let mut lock = state.lock().await;
                                     let game_state = &mut lock.get_session_mut(session_id).expect("session exists").game_state;
                                     if !game_state.paused { continue; }
                                     game_state.time_paused += time_paused;
@@ -176,13 +171,13 @@ async fn session_start(mut ws: WebSocket, session_id: u32, blue_teams: Vec<Strin
                 },
             }
         }
-    });
+    };
 
     tokio::select! {
-        _ = &mut ping_task => {},
-        _ = &mut ws_send_task => {},
-        _ = &mut recv_message_task => {},
-        _ = &mut recv_task => {},
+        _ = ping_task => {},
+        _ = ws_send_task => {},
+        _ = recv_message_task => {},
+        _ = recv_task => {},
     };
 
     {

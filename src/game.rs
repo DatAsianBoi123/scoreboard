@@ -55,16 +55,6 @@ pub struct ScoredRecord {
     pub undo: i32,
 }
 
-impl ScoredRecord {
-    pub fn one_scored() -> Self {
-        ScoredRecord { scored: 1, undo: 0 }
-    }
-
-    pub fn one_undo() -> Self {
-        ScoredRecord { scored: 0, undo: 1 }
-    }
-}
-
 #[derive(Clone, Debug, Serialize)]
 pub struct ScorePoint {
     pub name: String,

@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use axum::{extract::{Path, State, WebSocketUpgrade, ws::{Message, WebSocket}}, http::StatusCode, response::{IntoResponse, Response}};
-use tokio::sync::broadcast::{Sender, Receiver};
-use futures::{StreamExt, SinkExt};
+use tokio::sync::{broadcast::{Receiver, Sender}, mpsc};
+use futures::{SinkExt, StreamExt};
 use tracing::{error, info};
 
 use crate::{session_manager::{Team, HostMessage, UserMessage}, AppState, packet::{ServerboundUserPacket, ClientboundUserPacket, IntoBytes, FromBytes}, game::GameData};
@@ -44,8 +46,25 @@ async fn handle_upgrade(
     }
 
     let (mut sender, mut recv) = ws.split();
+    let (ws_sender, mut ws_recv) = mpsc::unbounded_channel();
 
-    let mut close_task = tokio::spawn(async move {
+    let ws_send_task = async {
+        while let Some(message) = ws_recv.recv().await {
+            if sender.send(message).await.is_err() { break; }
+        }
+    };
+
+    let ping_task = async {
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+            if ws_sender.send(Message::Ping(Default::default())).is_err() { break; }
+        }
+    };
+
+    let close_task = async {
         while let Ok(message) = user_recv.recv().await {
             let bytes = match message {
                 UserMessage::GameStart => Some(ClientboundUserPacket::StartGame().into_bytes()),
@@ -54,14 +73,14 @@ async fn handle_upgrade(
             };
 
             if let Some(bytes) = bytes {
-                if sender.send(Message::Binary(bytes)).await.is_err() { break; }
+                if ws_sender.send(Message::Binary(bytes)).is_err() { break; }
             } else {
                 break;
             }
         }
-    });
+    };
 
-    let mut recv_task = tokio::spawn(async move {
+    let recv_task = async {
         while let Some(message) = recv.next().await {
             match message {
                 Ok(Message::Binary(bytes)) => {
@@ -89,11 +108,13 @@ async fn handle_upgrade(
                 Err(err) => error!("[user {id}] {err}"),
             }
         }
-    });
+    };
 
     tokio::select! {
-        _ = &mut close_task => {},
-        _ = &mut recv_task => {},
+        _ = ws_send_task => {},
+        _ = ping_task => {},
+        _ = close_task => {},
+        _ = recv_task => {},
     };
 
     info!("[{id}] user disconnected");
