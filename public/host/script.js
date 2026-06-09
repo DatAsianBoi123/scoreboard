@@ -92,8 +92,8 @@ document.getElementById('hostInfoForm').addEventListener('submit', event => {
       alert('malformed form data');
       return;
     }
-  } else if (gameType === 'import') {
-    data = event.target.importCode.value;
+  } else {
+    return;
   }
   host(event.target.matchNumber.value, gameType, data);
 });
@@ -102,12 +102,12 @@ document.getElementById('gameTypeSelect').addEventListener('input', _ => {
   updateHostInfoForm();
 });
 
-document.getElementById('newRowBtn').addEventListener('click', newRow);
+document.getElementById('newRowBtn').addEventListener('click', _ => newRow());
 
 document.getElementById('copyGameDataBtn').addEventListener('click', async _ => {
   const gameData = getGameData();
   if (!gameData) {
-    alert('Malformed form data');
+    alert('malformed form data');
     return;
   }
   const writer = new PacketWriter(gameData[1]);
@@ -122,6 +122,21 @@ document.getElementById('copyGameDataBtn').addEventListener('click', async _ => 
   await navigator.clipboard.writeText(btoa(binary));
 });
 
+document.getElementById('importGameDataBtn').addEventListener('click', async _ => {
+  const code = (await navigator.clipboard.readText()).trim();
+  if (!code) return;
+  const data = Uint8Array.fromBase64(code);
+  const gameInfo = new PacketReader(data.buffer).readGameInfo();
+
+  document.getElementById('durationMinInput').value = Math.floor(gameInfo.duration / 60);
+  document.getElementById('durationSecsInput').value = gameInfo.duration % 60;
+  const tableBody = document.querySelector('#scoreTable tbody');
+  tableBody.replaceChildren();
+  for (const scorePoint of gameInfo.scorePoints) {
+    newRow(scorePoint.name, scorePoint.category, scorePoint.points);
+  }
+});
+
 document.getElementById('blueAddTeam').addEventListener('submit', event => {
   event.preventDefault();
 
@@ -132,22 +147,6 @@ document.getElementById('redAddTeam').addEventListener('submit', event => {
   event.preventDefault();
 
   addTeamName('red', event.target);
-});
-
-document.addEventListener('keydown', event => {
-  if (event.key !== 'Control' || event.repeat) return;
-
-  for (const row of document.getElementsByClassName('scoreTableRow')) {
-    row.classList.add('delete');
-  }
-});
-
-document.addEventListener('keyup', event => {
-  if (event.key !== 'Control') return;
-
-  for (const row of document.getElementsByClassName('scoreTableRow')) {
-    row.classList.remove('delete');
-  }
 });
 
 function addTeamName(team, form) {
@@ -169,7 +168,7 @@ function addTeamName(team, form) {
     event.target.parentElement.remove();
   });
   li.appendChild(deleteInput);
-  
+
   teams.appendChild(li);
 
   if (team === 'blue') blueTeams.push(name);
@@ -186,14 +185,11 @@ function updateHostInfoForm() {
   const gameType = document.getElementById('gameTypeSelect').value;
   const builtinGameType = document.getElementById('builtinGameType');
   const customGameType = document.getElementById('customGameType');
-  const importGameType = document.getElementById('importGameType');
 
   builtinGameType.style.display = 'none';
   customGameType.style.display = 'none';
-  importGameType.style.display = 'none';
   if (gameType === 'builtin') builtinGameType.style.display = 'block';
   else if (gameType === 'custom') customGameType.style.display = 'block';
-  else if (gameType === 'import') importGameType.style.display = 'block';
 }
 
 function getGameData() {
@@ -217,16 +213,51 @@ function getGameData() {
   return [{ duration, scorePoints }, length];
 }
 
-function newRow() {
+/**
+ * @param {string?} name
+ * @param {string?} category
+ * @param {number?} points
+ */
+function newRow(name, category, points) {
   const scoreTable = document.querySelector('#scoreTable tbody');
 
   const row = scoreTable.insertRow();
-  row.addEventListener('click', event => {
-    if (!event.ctrlKey) return;
-    row.remove();
-  });
   row.classList.add('scoreTableRow');
 
+  const editCell = row.insertCell();
+  const moveUp = document.createElement('input');
+  moveUp.type = 'button';
+  moveUp.value = '^';
+  moveUp.title = 'Move Row Up';
+  moveUp.classList.add('editInput');
+  moveUp.addEventListener('click', _ => {
+    const above = row.previousElementSibling;
+    if (above) {
+      row.insertAdjacentElement('afterend', above);
+    }
+  });
+  const moveDown = document.createElement('input');
+  moveDown.type = 'button';
+  moveDown.value = 'v';
+  moveDown.title = 'Move Row Down';
+  moveDown.classList.add('editInput');
+  moveDown.addEventListener('click', _ => {
+    const above = row.nextElementSibling;
+    if (above) {
+      row.insertAdjacentElement('beforebegin', above);
+    }
+  });
+  const remove = document.createElement('input');
+  remove.type = 'button';
+  remove.value = '-';
+  remove.title = 'Remove Row';
+  remove.classList.add('editInput');
+  remove.addEventListener('click', _ => {
+    row.remove();
+  });
+  editCell.appendChild(moveUp);
+  editCell.appendChild(moveDown);
+  editCell.appendChild(remove);
   for (let i = 0; i < 3; i++) {
     const td = row.insertCell();
 
@@ -234,10 +265,15 @@ function newRow() {
     input.type = i === 2 ? 'number' : 'text';
     input.classList.add('noEnter');
 
-    if (i === 0) input.classList.add('name');
-    if (i === 2) input.classList.add('points');
-    if (i === 1) {
+    if (i === 0) {
+      input.classList.add('name');
+      input.value = name ?? '';
+    } else if (i === 2) {
+      input.classList.add('points');
+      input.value = points ?? 0;
+    } else if (i === 1) {
       input.classList.add('category');
+      input.value = category ?? '';
 
       const wrapper = document.createElement('div');
       wrapper.classList.add('dropdownWrapper');
@@ -257,9 +293,9 @@ function newRow() {
       wrapper.appendChild(dropdown);
 
       td.appendChild(wrapper);
-    } else {
-      td.appendChild(input);
     }
+
+    if (i !== 1) td.appendChild(input);
   }
 }
 
@@ -289,7 +325,7 @@ function generateCategoryList(input) {
 }
 
 /**
-  * @param {{ name: string, data: any }[]} builtinGames 
+  * @param {{ name: string, data: any }[]} builtinGames
   */
 function retrieveBuiltinGames(builtinGames) {
   document.getElementById('loadingDiv').style.display = 'none';
@@ -308,7 +344,7 @@ function retrieveBuiltinGames(builtinGames) {
 
 /**
   * @param {number} matchNumber
-  * @param {'builtin' | 'custom' | 'import'} gameType 
+  * @param {'builtin' | 'custom'} gameType
   */
 function host(matchNumber, gameType, data) {
   document.getElementById('prehost').style.display = 'none';
@@ -337,27 +373,19 @@ function host(matchNumber, gameType, data) {
       writer = new PacketWriter(nameSize + 12);
     } else if (gameType === 'custom') {
       writer = new PacketWriter(nameSize + 4 + data[1]);
-    } else if (gameType === 'import') {
-      writer = new PacketWriter(nameSize + 4 + atob(data).length);
     }
 
     writer.writeUint8(4);
     writer.writeUint16(matchNumber);
     writer.writeStringArray(blueTeams);
     writer.writeStringArray(redTeams);
-    
+
     if (gameType === 'builtin') {
       writer.writeUint8(0);
       writer.writeUint64(BigInt(data));
     } else if (gameType === 'custom') {
       writer.writeUint8(1);
       writer.writeGameData(data[0]);
-    } else if (gameType === 'import') {
-      const bytes = atob(data);
-      writer.writeUint8(1);
-      for (let i = 0; i < bytes.length; i++) {
-        writer.writeUint8(bytes.charCodeAt(i));
-      }
     }
     ws.send(writer.get());
   });
@@ -428,8 +456,8 @@ function startUpdateTimeInterval() {
       timeLeftH1.innerText = 'GAME ENDED';
       clearInterval(updateTimeIntervalId);
       return;
-    } 
-    
+    }
+
     let time;
     if (!startedTime) {
       time = formatTime(gameInfo.duration * 1000);
@@ -503,9 +531,9 @@ function disconnect() {
 }
 
 /**
-  * @param {0 | 1} team 
-  * @param {number} scoreId 
-  * @param {boolean} undo 
+  * @param {0 | 1} team
+  * @param {number} scoreId
+  * @param {boolean} undo
   */
 function score(team, scoreId, undo) {
   const scorePoints = gameInfo.scorePoints[scoreId];
@@ -550,7 +578,7 @@ function addScoreLog(team, scorePoints, undo) {
   row.appendChild(pointsCell);
   row.appendChild(timestampCell);
 
-  document.getElementById('scoreHistory').appendChild(row);
+  document.querySelector('#scoreHistory tbody').appendChild(row);
 }
 
 function getCurrentTimeLeft() {
@@ -568,9 +596,9 @@ function formatTime(time) {
 }
 
 /**
-  * @param {string} str 
-  * @param {string} padString 
-  * @param {number} size 
+  * @param {string} str
+  * @param {string} padString
+  * @param {number} size
   */
 function leftPad(str, padString, size) {
   let padded = '';
@@ -581,4 +609,3 @@ function leftPad(str, padString, size) {
 
   return padded + str;
 }
-

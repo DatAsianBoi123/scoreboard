@@ -28,18 +28,12 @@
       <select name="gameType" id="gameTypeSelect">
         <option value="builtin" selected>Builtin</option>
         <option value="custom">Custom</option>
-        <option value="import">Import Code</option>
       </select>
       <br><br>
 
       <div id="builtinGameType">
         <label for="gameIdSelect">Game: </label>
         <select name="gameId" id="gameIdSelect"></select>
-      </div>
-
-      <div id="importGameType">
-        <label for="importCodeInput">Code: </label>
-        <input name="importCode" id="importCodeInput" type="text" autocomplete="off">
       </div>
 
       <div id="customGameType">
@@ -53,14 +47,19 @@
 
         <p>Scores:</p>
         <table id="scoreTable">
-          <tr>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Points</th>
-          </tr>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
         </table>
         <input type="button" id="newRowBtn" value="New Row">
         <br><br>
+        <input type="button" id="importGameDataBtn" value="Load Code From Clipboard">
         <input type="button" id="copyGameDataBtn" value="Copy Export Code">
       </div>
       <br>
@@ -97,12 +96,15 @@
       <button id="pauseBtn">Pause</button>
       <button id="endBtn">End Now</button>
       <table id="scoreHistory">
-        <tr>
-          <th>Team</th>
-          <th>Scored</th>
-          <th>Points Earned</th>
-          <th>Timestamp</th>
-        </tr>
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th>Scored</th>
+            <th>Points Earned</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
       </table>
     </div>
   </div>

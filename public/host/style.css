@@ -17,27 +17,17 @@ tr.blue {
   background: skyblue;
 }
 
-tr.delete td:first-child::before {
-  content: '';
-  background: rgba(255, 20, 15, 0.3);
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10;
-}
-tr.delete td:first-child:hover::before {
-  background: rgba(255, 20, 15, 0.5);
-}
-
-th {
+thead {
   background: #37e66e;
 }
 
 td input {
   width: 100%;
   box-sizing: border-box;
+}
+
+.editInput {
+  width: fit-content;
 }
 
 .scoreTableRow {
@@ -78,4 +68,3 @@ td input {
 .dropdownWrapper .textDropdown ul li:not(:last-child) {
   border-bottom: 1px solid gray;
 }
-
